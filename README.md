@@ -2,6 +2,12 @@
 
 ## Setup
 
+Make sure you have `python` and `pip` installed.
+```bash
+python -V
+pip -V
+```
+
 Create a virtual environment.
 ```bash
 python venv -m .env
@@ -16,4 +22,12 @@ pip install fury
 
 ```bash
 python src/main.py
+```
+
+## Testing
+
+Tests are located in `src/tests'.
+
+```bash
+python -m unittest src/tests
 ```
