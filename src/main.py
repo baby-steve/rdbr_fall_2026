@@ -3,6 +3,8 @@ import time
 import numpy as np
 from fury import actor, ui, window
 
+from spatial_vector import rot, xlt
+
 # Initialize render scene.
 scene = window.Scene()
 
