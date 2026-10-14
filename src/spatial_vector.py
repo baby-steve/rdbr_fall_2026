@@ -102,3 +102,65 @@ def x_to_v(x):
             [x[3, 1] - x[4, 0]],
         ]
     )
+
+
+# def skew(a):
+#     """
+#     Convert 3D vector <-> 3x3 skew-symmetric matrix
+#     """
+#     if a.shape == (3, 3):
+#         return 0.5 * np.array(
+#             [
+#                 [a[2, 1] - a[1, 2]],
+#                 [a[0, 2] - a[2, 0]],
+#                 [a[1, 0] - a[0, 1]],
+#             ]
+#         )
+#     else:
+#         return np.array([[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]])
+
+
+def skew(A):
+    return 0.5 * np.array(
+        [
+            [A[2, 1] - A[1, 2]],
+            [A[0, 2] - A[2, 0]],
+            [A[1, 0] - A[0, 1]],
+        ]
+    )
+
+
+def Xpt(X, p):
+    # Xpt  apply Plucker transform to 3D points
+    # xp=Xpt(X,p)  applies the coordinate transform X to the points in p,
+    # returning the new coordinates in xp.  If X is a 6x6 matrix then it is
+    # taken to be a Plucker coordinate transform, and p is expected to be a
+    # 3xn matrix of 3D points.  Otherwise, X is assumed to be a planar
+    # coordinate transform and p a 2xn array of 2D points.
+    assert X.shape == (6, 6)
+
+    E = X[0:3, 0:3]
+    r = -skew(np.transpose(E) * X[3:6, 0:3])
+
+    return (E * (p - r)).reshape((3,))
+
+
+def spatial_to_homogeneous(X):
+    E = X[0:3, 0:3]
+    mErx = X[3:6, 0:3]
+    return np.block(
+        [
+            [E, skew(mErx * np.transpose(E))],
+            [0, 0, 0, 1],
+        ]
+    )
+
+
+def spatial_to_3d(X, p):
+    """
+    Apply a spatial coordinate transform to a 3d point.
+    """
+    E = X[0:3, 0:3]
+    r = -skew(np.transpose(E) * X[3:6, 0:3])
+
+    return (E * (p - r)).reshape((3,))
