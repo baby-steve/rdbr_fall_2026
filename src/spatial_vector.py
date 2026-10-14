@@ -79,6 +79,14 @@ def xlt(r):
         ]
     )
 
+def skew(A):
+    return 0.5 * np.array(
+        [
+            [A[2, 1] - A[1, 2]],
+            [A[0, 2] - A[2, 0]],
+            [A[1, 0] - A[0, 1]],
+        ]
+    )
 
 # Compose rigid-body interia from mass, center of mass and rotational intertia.
 def mcI(m, c, I_c):
@@ -102,3 +110,23 @@ def x_to_v(x):
             [x[3, 1] - x[4, 0]],
         ]
     )
+
+def spatial_to_homogeneous(X):
+    E = X[0:3, 0:3]
+    mErx = X[3:6, 0:3]
+    return np.block(
+        [
+            [E, skew(mErx * np.transpose(E))],
+            [0, 0, 0, 1],
+        ]
+    )
+
+def spatial_to_3d(X, p):
+    """
+    Apply a spatial coordinate transform to a 3d point.
+    """
+    E = X[0:3, 0:3]
+    r = -skew(np.transpose(E) * X[3:6, 0:3])
+
+    return (E * (p - r)).reshape((3,))
+
