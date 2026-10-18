@@ -69,6 +69,27 @@ class Model:
 
         return global_transform
 
+    def calculate_global_transform_v2(self):
+        global_transform = []
+
+        for i in range(self.nb):
+            (x_j, _) = self.jcalc(self.joint_types[i], self.q[i])
+            # NOTE: very important that we use element-wise multiplication.
+            # Will not work at all if you use regular matrix multiplication.
+            # (Yes it took several hours for me to fix this bug. Yes, it was
+            # very statisfiying when I finally fixed it. Yes, this is a stupid
+            # mistake to make and frankly I'm disappointed it took me this long
+            # to catch it).
+            x = self.joint_transforms[i] @ x_j
+
+            if self.parent[i] != 0:
+                # NOTE: ditto
+                x = global_transform[self.parent[i] - 1] @ x
+
+            global_transform.append(x)
+        
+        return global_transform
+
     def jcalc(self, jtype, q):
         # DEV: if we want to handle helical joints, then we'd need
         # to allow `jtype` to be a struture or something with extra fields.
