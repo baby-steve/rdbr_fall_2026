@@ -74,6 +74,7 @@ class Model:
         # Gravity expressed as a spatial vector.
         # a_grav = get_gravity(model);
         a_gravity = np.array([[0], [0], [0], [0], [0], [-9.81]])
+        # a_gravity = np.array([[0], [0], [0], [0], [0], [0]])
 
         x_up = []  # Joint transforms of each joint from base
         v = []  # Spatial velocity of each joint

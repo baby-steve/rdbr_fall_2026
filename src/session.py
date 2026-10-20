@@ -1,9 +1,9 @@
 from datetime import datetime
 
 from graphics import GraphicsManager
-from simulation import Simulation
 from models.double_pendulum import DoublePendulum
 from models.quadruped import Quadruped
+from simulation import Simulation
 
 # TODO
 # 3 modes:
@@ -36,6 +36,8 @@ class RunSession(Session):
         self.t = [0.0]
         self.q1 = [0.0]
         self.q2 = [0.0]
+        self.q3 = [0.0]
+        self.q4 = [0.0]
 
         # Timestep/render loop stuff:
         self.elapsed = 0
@@ -64,6 +66,8 @@ class RunSession(Session):
             self.t.append(self.elapsed)
             self.q1.append(self.model.q[0])
             self.q2.append(self.model.q[1])
+            self.q3.append(self.model.q[2])
+            self.q4.append(self.model.q[3])
 
             # Update charts.
             # q1_chart.update(model, t, x, dt, elapsed)
@@ -72,7 +76,9 @@ class RunSession(Session):
             self.acc -= self.dt
             self.elapsed += self.dt
 
-        self.graphics.update(self.t, self.q2, self.q1, self.dt, self.elapsed)
+        self.graphics.update(
+            self.t, self.q2, self.q1, self.q4, self.q3, self.dt, self.elapsed
+        )
 
     def shutdown(self):
         if self.record is None:
@@ -80,8 +86,8 @@ class RunSession(Session):
 
         # Write simulation data to file.
         out = [
-            "DoublePendulum", # Model name
-            "t, q1, q2", # Column headers
+            "DoublePendulum",  # Model name
+            "t, q1, q2",  # Column headers
         ]
 
         for i in range(len(self.t)):
@@ -94,8 +100,6 @@ class RunSession(Session):
 
         with open(self.record, "w") as f:
             f.write(out)
-
-
 
 
 class PlaybackSession(Session):
