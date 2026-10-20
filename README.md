@@ -13,20 +13,42 @@ Create a virtual environment.
 python venv -m .env
 ```
 
-Install [fury](https://github.com/fury-gl/fury/tree/master).
+Install `pyvista`.
 ```bash
-pip install fury
+pip install pyvista
 ```
 
 ## Run
 
+Print the help message.
+
 ```bash
-python src/main.py
+python src/main.py -h
+```
+
+Spin up a simulatation for a given model with the run subcommand.
+
+```bash
+python src/main.py run <model-name>
+```
+
+Currently, the following models are avaliable:
+* DoublePendulum
+* Quadruped
+
+Models are located in `src/models`
+
+## Playback
+
+Record and playback a simulation run:
+```bash
+python src/main.py run <model-name> --record=<file-name>
+python src/main.py playback <file-name>
 ```
 
 ## Testing
 
-Tests are located in `src/tests'.
+Tests are located in `src/tests`.
 
 ```bash
 python -m unittest src/tests
