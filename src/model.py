@@ -269,3 +269,12 @@ class Model:
         pos_b = sp.spatial_to_3d(x, ZERO)
         body = pv.Sphere(center=pos_b, radius=0.1)
         return body
+
+    def state_layout(self):
+        return []
+
+    def record_state(self):
+        return []
+
+    def apply_state(self, state):
+        pass
