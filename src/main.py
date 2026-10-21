@@ -16,7 +16,6 @@ playback_parser = subparsers.add_parser("playback", help="playback recorded simu
 playback_parser.add_argument("file", help="file to load playback from")
 
 args = parser.parse_args()
-print(args)
 
 if args.subparser_name == "run":
     print("Run")
@@ -45,6 +44,7 @@ try:
         session.update()
 
 except KeyboardInterrupt:
-    print("Goodbye")
     quit = True
+    print("\nShutting down...")
     session.shutdown()
+    print("Goodbye")

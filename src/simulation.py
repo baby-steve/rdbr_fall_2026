@@ -19,7 +19,7 @@ class Simulation:
         # Get external forces. These are in joint space.
         # TODO: forces from controller (pass in as parameter)
         # TODO: what gets put in tau and what gets put in f_ext?
-        tau = np.zeros((self.model.nb, 1))
+        self.tau = np.zeros((self.model.nb, 1))
         f_ext = self.model.joint_forces()
 
         # Calculate joint space inertia matrix and the joint space
@@ -27,7 +27,7 @@ class Simulation:
         H, C = self.model.compute_H_and_C(f_ext)
 
         # Solve the EOM for acceleration.
-        qdd = np.linalg.inv(H) @ (tau - C)
+        qdd = np.linalg.inv(H) @ (self.tau - C)
 
         # Integrate acceleration to get velocity.
         # TODO: better integration algorithm.

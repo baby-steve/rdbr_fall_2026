@@ -70,17 +70,17 @@ class Quadruped(Model):
     def joint_forces(self):
         f_ext = {}
 
-        for i in range(len(self.qd)):
-            if i % 2 == 0:
-                f = np.array(
-                    [[0], [-2000 * self.qd[i]], [0], [0], [0], [0]]
-                )
-            else:
-                f = np.array(
-                    [[0], [-20 * self.qd[i]], [0], [0], [0], [0]]
-                )
+        # for i in range(len(self.qd)):
+        #     if i % 2 == 0:
+        #         f = np.array(
+        #             [[0], [-2000 * self.qd[i]], [0], [0], [0], [0]]
+        #         )
+        #     else:
+        #         f = np.array(
+        #             [[0], [-20 * self.qd[i]], [0], [0], [0], [0]]
+        #         )
 
-            f_ext[i] = f
+        #     f_ext[i] = f
 
         return f_ext
 

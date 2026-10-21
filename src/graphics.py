@@ -2,7 +2,6 @@ import numpy as np
 import pyvista as pv
 
 import spatial_vector as sp
-from model import Model
 
 
 class GraphicsManager:
@@ -40,22 +39,31 @@ class GraphicsManager:
         self.plotter.camera.zoom(2)
         self.plotter.show(interactive_update=True)
 
-        self.plotter.subplot(0, 0)
-        self.q1_chart = ModelDataPlot(
-            self.plotter, (1, 1), (0, 0), ("time (s)", "q1 (rad/s)")
+        # Create charts to display joint positions, joint velocities, etc.
+        self.position = SimDataChart(
+            self.plotter, ("time", "q"), (0, 0), model, model.nb
+        )
+        self.velocity = SimDataChart(
+            self.plotter, ("time", "qd"), (1, 0), model, model.nb
+        )
+        self.torque = SimDataChart(
+            self.plotter, ("time", "tau"), (2, 0), model, model.nb
         )
 
-        self.plotter.subplot(1, 0)
-        self.q0_chart = ModelDataPlot(
-            self.plotter, (1, 1), (0, 0), ("time (s)", "q0 (rad/s)")
-        )
-
-    def update(self, t, x, x0, x1, x2, dt, elapsed):
-        # Update chart state.
-        self.update_charts(t, x, x0, x1, x2, dt, elapsed)
-
+    def update(self, data):
         # Update render model state.
         self.update_render_model()
+
+        # Update the range of data displayed in the charts.
+        # last_timestep = data.time[-1]  # The last simulated timestep, in seconds.
+        # new_start = max(last_timestep - 5, 0) # timestamp 5 seconds ago
+        start = 0 # TODO: fix this
+        time_bounds = (data.time[start], data.time[start] + 5)
+
+        # Update the charts.
+        self.position.update(self.plotter, data.time, data.position, start, time_bounds)
+        self.velocity.update(self.plotter, data.time, data.velocity, start, time_bounds)
+        self.torque.update(self.plotter, data.time, data.torque, start, time_bounds)
 
         # Draw model and charts.
         self.plotter.update()
@@ -70,11 +78,8 @@ class GraphicsManager:
         for i in range(self.model.nb):
             pos_j = sp.spatial_to_3d(xs[i], ZERO)
 
-            # pos_b = sp.spatial_to_3d(x, ZERO)
-            # dir = pos_b - pos_j
             joint = pv.Sphere(center=pos_j, radius=r_j)
             body = self.model.appearance(i, xs[i])
-            # pv.Cylinder(center=pos_b, direction=dir, radius=r_l, height=links[i])
             color = self.model.color(i)
 
             joint_name = "joint" + str(i + 1)
@@ -83,39 +88,45 @@ class GraphicsManager:
             self.plotter.add_mesh(joint, color=color, name=joint_name, render=False)
             self.plotter.add_mesh(body, color=color, name=body_name, render=False)
 
-    def update_charts(self, t, x, x0, x1, x2, dt, elapsed):
-        # TODO: don't depend on dt, elapsed.
-        # TODO: currently hardcoded to work with pendulum example.
-        # Update charts.
-        self.plotter.subplot(0, 0)
-        self.q1_chart.update(self.model, t, x, x1, dt, elapsed)
-        self.plotter.subplot(1, 0)
-        self.q0_chart.update(self.model, t, x0, x2, dt, elapsed)
 
-
-class ModelDataPlot:
-    def __init__(self, plotter: pv.Plotter, size, loc, label):
+class SimDataChart:
+    def __init__(self, plotter, label, cell, model, entries):
         x_label, y_label = label
+        self.row, self.col = cell
+        self.entries = entries
 
-        chart = pv.Chart2D(size=size, loc=loc, x_label=x_label, y_label=y_label)
-        line_1 = chart.line([0], [0])
-        line_2 = chart.line([0], [0])
-        chart.y_range = (-2, 2)
-        chart.x_range = (0, 5)
-        chart.background_color = (1.0, 1.0, 1.0, 1.0)
-        plotter.add_chart(chart)  # pyright: ignore[reportArgumentType]
+        plotter.subplot(self.row, self.col)
 
-        self.chart = chart
-        self.line_1 = line_1
-        self.line_2 = line_2
+        self.chart = pv.Chart2D(
+            size=(1, 1), loc=(0, 0), x_label=x_label, y_label=y_label
+        )
 
-    def update(self, model: Model, t, x, x1, dt, elapsed):
-        r_x = min(5 / dt, elapsed / dt)
-        start = int(max(len(t) - r_x - 1, 0))
-        r_y_max = max(max(x), 2)
-        r_y_min = min(min(x), -2)
+        self.lines = []
+        self.bounds = (-2, 2)
 
-        self.line_1.update(t[start:], x[start:])
-        self.line_2.update(t[start:], x1[start:])
-        self.chart.x_range = (t[start], t[start] + 5)
-        self.chart.y_range = (r_y_min, r_y_max)
+        for i in range(self.entries):
+            line = self.chart.line([0], [0], model.color(i))
+            self.lines.append(line)
+
+        self.chart.y_range = self.bounds
+        self.chart.x_range = (0, 5)
+        self.chart.background_color = (1.0, 1.0, 1.0, 1.0)
+
+        plotter.add_chart(self.chart)  # pyright: ignore[reportArgumentType]
+
+    def update(self, plotter, t, data, start, time_bounds):
+        plotter.subplot(self.row, self.col)
+        for i in range(self.entries):
+            # Adjust chart bounds if new data goes out of previous bounds.
+            val = data[i][-1]
+            min_val, max_val = self.bounds
+            self.bounds = (min(min_val, val), max(max_val, val))
+
+            # Update line data
+            line = self.lines[i]
+            assert len(data[i]) == len(t)
+            line.update(t[start:], data[i][start:])
+
+        # Update bounds of chart.
+        self.chart.x_range = time_bounds
+        self.chart.y_range = self.bounds

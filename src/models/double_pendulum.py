@@ -16,7 +16,7 @@ class DoublePendulum(Model):
         q = [-np.pi / 2, 0.0]
         parent = [None, 0]
         joint_types = ["Ry", "Ry"]
-        joint_transforms = [sp.xlt([0, 0, 0]), sp.xlt([0, 0, l0])]
+        joint_transforms = [sp.xlt([0, 0, -2]), sp.xlt([0, 0, l0])]
 
         # Mass of each leg, in kgs
         m = [m0, m1]
@@ -44,9 +44,10 @@ class DoublePendulum(Model):
         self.colors = ["blue", "green"]
         self.rl = rl
 
-
     def joint_forces(self):
-        joint1_friction_force = np.array([[0], [-2000 * self.qd[0]], [0], [0], [0], [0]])
+        joint1_friction_force = np.array(
+            [[0], [-2000 * self.qd[0]], [0], [0], [0], [0]]
+        )
         joint2_friction_force = np.array([[0], [-20 * self.qd[1]], [0], [0], [0], [0]])
         f_ext = {0: joint1_friction_force, 1: joint2_friction_force}
         return f_ext
@@ -60,5 +61,7 @@ class DoublePendulum(Model):
         pos_j = sp.spatial_to_3d(x_up, ZERO)
         pos_b = sp.spatial_to_3d(x, ZERO)
         dir = pos_b - pos_j
-        body = pv.Cylinder(center=pos_b, direction=dir, radius=self.rl, height=self.links[i])
+        body = pv.Cylinder(
+            center=pos_b, direction=dir, radius=self.rl, height=self.links[i]
+        )
         return body

@@ -1,5 +1,8 @@
 from datetime import datetime
 
+import numpy as np
+
+from data import DataManager
 from graphics import GraphicsManager
 from models.double_pendulum import DoublePendulum
 from models.quadruped import Quadruped
@@ -33,11 +36,7 @@ class RunSession(Session):
         self.model = model
         self.sim = Simulation(model)
 
-        self.t = [0.0]
-        self.q1 = [0.0]
-        self.q2 = [0.0]
-        self.q3 = [0.0]
-        self.q4 = [0.0]
+        self.q_data = [[0.0] for _ in range(len(model.q))]
 
         # Timestep/render loop stuff:
         self.elapsed = 0
@@ -48,6 +47,7 @@ class RunSession(Session):
 
         self.graphics = GraphicsManager(model)
         self.record = record
+        self.data = DataManager(model)
 
     def update(self):
         new_time = datetime.now().timestamp()
@@ -62,89 +62,69 @@ class RunSession(Session):
             # Tick the simulaton.
             self.sim.step(self.dt)
 
-            # Record simulation data.
-            self.t.append(self.elapsed)
-            self.q1.append(self.model.q[0])
-            self.q2.append(self.model.q[1])
-            self.q3.append(self.model.q[2])
-            self.q4.append(self.model.q[3])
+            # Record current timestamp.
+            # TODO: should we record substeps?
+            self.data.time.append(self.elapsed)
 
-            # Update charts.
-            # q1_chart.update(model, t, x, dt, elapsed)
-            # q0_chart.update(model, t, x0, dt, elapsed)
+            # Record joint positions.
+            for i, q in enumerate(self.model.q):
+                self.data.position[i].append(q)
+
+            # Record joint velocities
+            for i, qd in enumerate(self.model.qd):
+                self.data.velocity[i].append(qd)
+
+            # Record joint torques
+            for i, tau in enumerate(self.sim.tau):
+                self.data.torque[i].append(tau[0])
 
             self.acc -= self.dt
             self.elapsed += self.dt
 
-        self.graphics.update(
-            self.t, self.q2, self.q1, self.q4, self.q3, self.dt, self.elapsed
-        )
+        # Update the graphics state.
+        self.graphics.update(self.data)
 
     def shutdown(self):
         if self.record is None:
             return
 
-        # Write simulation data to file.
-        out = [
-            "DoublePendulum",  # Model name
-            "t, q1, q2",  # Column headers
-        ]
-
-        for i in range(len(self.t)):
-            t = self.t[i]
-            q1 = self.q1[i]
-            q2 = self.q2[i]
-            out.append(", ".join([str(t), str(q1), str(q2)]))
-
-        out = "\n".join(out)
-
-        with open(self.record, "w") as f:
-            f.write(out)
+        self.data.write_to_file(self.record)
 
 
 class PlaybackSession(Session):
     def __init__(self, file):
         # Read model and sim data from file.
-        f = open(file, "r")
-        content = f.read()
-        lines = content.split("\n")
-        print(lines[0])
-        print(lines[1])
+        with open(file, "r") as f:
+            content = f.read()
+            lines = content.split("\n")
 
-        data = []
-        for line in lines[2:]:
-            c = line.split(",")
-            row = []
-            for v in c:
-                row.append(float(v))
+            model_name = lines[0]
+            if model_name == "DoublePendulum":
+                model = DoublePendulum(1, 1.5, 1.25, 1.25)
+            elif model_name == "Quadruped":
+                model = Quadruped(1.0, 1.5, 1.0, 1.0)
+            else:
+                raise RuntimeError("Invalid model name: " + str(model_name))
 
-            data.append(row)
+            self.model = model
 
-        self.sim_data = data
+            self.sim_data = DataManager(model)
+            self.sim_data.init_from_file(content)
 
-        model_name = lines[0]
-        if model_name == "DoublePendulum":
-            model = DoublePendulum(1, 1.5, 1.25, 1.25)
-        elif model_name == "Quadruped":
-            model = Quadruped(1.0, 1.5, 1.0, 1.0)
-        else:
-            raise RuntimeError("Invalid model name: " + str(model_name))
-
-        self.model = model
-        self.graphics = GraphicsManager(model)
-        self.timestamp = 0
-        self.time = 0
+            self.graphics = GraphicsManager(model)
+            self.timestamp = 0
+            self.time = 0
 
     def update(self):
-        if self.timestamp >= len(self.sim_data):
+        if self.timestamp >= len(self.sim_data.time):
             return
 
-        [t, q1, q2] = self.sim_data[self.timestamp]
+        q = [q[self.timestamp] for q in self.sim_data.position]
 
-        self.model.apply_state([q1, q2])
-        # self.graphics.update(self.time, q2, q1, 0.01, t)
+        self.model.q = np.array(q)
+        # TODO: update charts
         self.graphics.update_render_model()
         self.graphics.plotter.update()
 
         self.timestamp += 1
-        self.time += t
+        self.time += self.sim_data.time[self.timestamp]
