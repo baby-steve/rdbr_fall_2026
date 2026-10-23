@@ -35,7 +35,24 @@ def rz(theta: float) -> np.ndarray:
 # vector cross-product operator.
 def crv(v: np.ndarray) -> np.ndarray:
     assert(v.shape == (3,))
-    return np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    return np.array([
+        [0, -v[2], v[1]], 
+        [v[2], 0, -v[0]], 
+        [-v[1], v[0], 0]
+    ])
+
+
+def skew(A: np.ndarray) -> np.ndarray:
+    if A.shape == (3, 3):
+        return 0.5 * np.array(
+            [
+                A[2, 1] - A[1, 2],
+                A[0, 2] - A[2, 0],
+                A[1, 0] - A[0, 1],
+            ]
+        )
+    else:
+        return np.array([[0, -A[2], A[1]], [A[2], 0, -A[0]], [-A[1], A[1], 0]])
 
 
 # motion cross-product operator.
@@ -52,8 +69,8 @@ def crm(mv: MotionVector) -> np.ndarray:
     v = mv.v # "second three plucker coordinates"
     a = crv(w)
     b = crv(v)
-    zeros = np.zeros(3, 3)
-    return np.block([a, zeros], [b, a])
+    zeros = np.zeros((3, 3))
+    return np.block([[a, zeros], [b, a]])
 
 class MotionVector:
     def __init__(self, w: np.ndarray, v: np.ndarray):
@@ -65,7 +82,7 @@ class MotionVector:
 
 
     def dot(self, fv: ForceVector):
-        assert(fv is ForceVector)
+        assert(type(fv) is ForceVector)
 
         return self.w.dot(fv.n) + self.v.dot(fv.f)
 
@@ -74,7 +91,7 @@ class MotionVector:
         if type(other) is MotionVector:
             return MotionVector(
                 np.cross(self.w, other.w),
-                np.cross(self.w, other.v) + np.cross(self.v + other.w),
+                np.cross(self.w, other.v) + np.cross(self.v, other.w),
             )
         elif type(other) is ForceVector:
             return ForceVector(
@@ -222,15 +239,19 @@ class PluckerTransform:
                 self.E @ other.f
             )
         elif type(other) is RigidBodyInertia:
-            # TODO: what does "hx" mean?
-            rxhx = crv(self.r) @ crv(other.h) # TODO: I think this is wrong.
+            rxhx = crv(self.r) @ crv(other.h) # TODO: I think this is correct.
 
             return RigidBodyInertia(
                 other.m,
                 self.E @ (other.h - other.m * self.r),
-                # TODO: I think the other crv terms are also wrong
+                # TODO: I think the other crv terms are also correct
                 self.E @ (other.I + rxhx + (crv(other.h - other.m * self.r) @ crv(self.r))) @ self.E.T,
             )
+        elif type(other) is np.ndarray and other.shape == (3,):
+            # TODO: find r
+            r = self.E @ crv(self.r)
+            a = -skew(self.E.T @ r)
+            return self.E @ (other - a)
         else:
             raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
         
@@ -297,4 +318,4 @@ class RigidBodyInertia:
             return RigidBodyInertia(self.m + other.m, self.h + other.h, self.I + other.I)
         else:
             raise RuntimeError(f"Cannot add force vector and {type(other)}")
-        
+

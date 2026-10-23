@@ -1,10 +1,12 @@
 import numpy as np
 import pyvista as pv
 
-import spatial_vector as sp
-
+import alt_spatial_vector as sv
+from model_v2 import Model
 
 class GraphicsManager:
+    model: Model
+
     def __init__(self, model):
         self.model = model
 
@@ -29,8 +31,8 @@ class GraphicsManager:
 
         # Create a box representing the body
         # TODO: move this somewhere else.
-        body = pv.Cube(x_length=3.0, y_length=2.0, z_length=0.5, center=[0, 0, 2.5])
-        self.plotter.add_mesh(body, color="dark_gray")
+        # body = pv.Cube(x_length=3.0, y_length=2.0, z_length=0.5, center=[0, 0, 2.5])
+        # self.plotter.add_mesh(body, color="dark_gray")
 
         plane = pv.Plane(i_size=10, j_size=10, i_resolution=4, j_resolution=4)
         self.plotter.add_mesh(plane, color="#DDDDDD", show_edges=True)
@@ -69,14 +71,14 @@ class GraphicsManager:
         self.plotter.update()
 
     def update_render_model(self):
-        ZERO = [[0], [0], [0]]
+        ZERO = sv.vec3(0., 0., 0.)
         r_j = 0.2  # radius of joint (for rendering purposes)
 
         xs = self.model.calculate_global_transform()
         self.plotter.subplot(0, 1)
 
         for i in range(self.model.nb):
-            pos_j = sp.spatial_to_3d(xs[i], ZERO)
+            pos_j = xs[i].apply(ZERO)
 
             joint = pv.Sphere(center=pos_j, radius=r_j)
             body = self.model.appearance(i, xs[i])

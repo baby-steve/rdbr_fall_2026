@@ -2,6 +2,7 @@ import numpy as np
 import pyvista as pv
 
 import spatial_vector as sp
+import copy
 
 
 class Model:
@@ -17,6 +18,7 @@ class Model:
         self.body_transforms = body_transforms
         self.inertia = inertia
         self._print = True
+        self._count = 0
 
     def joint_forces(self):
         return {}
@@ -71,6 +73,13 @@ class Model:
         Returns the coefficients H and C.
         """
 
+        def select(i, a, b):
+            return a @ b
+            # if i == 4 or i == 5:
+            #     return b @ a
+            # else:
+            #     return a @ b
+
         # Gravity expressed as a spatial vector.
         # a_grav = get_gravity(model);
         a_gravity = np.array([[0], [0], [0], [0], [0], [-9.81]])
@@ -82,8 +91,11 @@ class Model:
         fvp = []  # Spatial forces of each joint
         s = []  # Motion subspace of each joint
 
+        self.print("\n === frame count: " + str(self._count) + " ===\n")
+
         # for i = 1:model.NB
         for i in range(self.nb):
+            self.print("joint " + str(i))
             # self.print("Iteration " + str(i + 1))
             # [ XJ, S{i} ] = jcalc( model.jtype{i}, q(i) );
             (x_j, s_i) = self.jcalc(self.joint_types[i], self.q[i])
@@ -95,8 +107,16 @@ class Model:
             # self.print(("v_j", v_j))
 
             # Xup{i} = XJ * model.Xtree{i};
-            x_up_i = x_j @ self.joint_transforms[i]
+            # x_up_i = self.joint_transforms[i] @ x_j
+            x_up_i = select(i, x_j, self.joint_transforms[i])
             x_up.append(x_up_i)
+            # if i == 4 or i == 5:
+            #     x_up_i = self.joint_transforms[i] @ x_j
+            #     x_up.append(x_up_i)
+            # else:
+            #     x_up_i = x_j @ self.joint_transforms[i]
+            #     x_up.append(x_up_i)
+            
 
             # if model.parent(i) == 0
             if self.parent(i) == None:
@@ -104,11 +124,11 @@ class Model:
                 v.append(v_j)
 
                 # avp{i} = Xup{i} * -a_grav;
-                avp_i = np.asarray(x_up_i) @ a_gravity
+                avp_i = np.asarray(x_up_i) @ a_gravity # Can't switch order
                 avp.append(avp_i)
             else:
                 # v{i} = Xup{i}*v{model.parent(i)} + vJ;
-                v_i = np.asarray(x_up_i) @ v[self.parent(i)] + v_j
+                v_i = (np.asarray(x_up_i) @ v[self.parent(i)]) + v_j # Can't switch order
 
                 # BUG: v_i is a matrix instead of an array
                 # and that just makes everything that much harder.
@@ -119,23 +139,37 @@ class Model:
                 avp_i = np.asarray(x_up_i) @ avp[self.parent(i)] + sp.crm(
                     v_i.reshape((6,))
                 ) @ v_j.reshape(6, 1)
+
                 avp.append(avp_i)
 
             # DEBUG
-            self.print(("x_up_i", x_up[i]))
             self.print(("inertia", self.inertia[i]))
-            self.print(("avp", avp[i]))
-            self.print(("v", v[i]))
-            self.print(
-                (
-                    "crf(v)",
-                    sp.crf(
-                        v[i].reshape(
-                            6,
-                        )
-                    ),
+            # self.print(("x_up_i", x_up[i]))
+            calc = (
+                # self.inertia[i] @ avp[i]
+                
+                # + 
+                sp.crf(
+                    v[i].reshape(
+                        6,
+                    )
                 )
+                @ self.inertia[i]
+                @ v[i]
             )
+            # self.print(("calcs", calc))
+            # self.print(("avp", avp[i]))
+            # self.print(("v", v[i]))
+            # self.print(
+            #     (
+            #         "crf(v)",
+            #         sp.crf(
+            #             v[i].reshape(
+            #                 6,
+            #             )
+            #         ),
+            #     )
+            # )
 
             # fvp{i} = model.I{i}*avp{i} + crf(v{i})*model.I{i}*v{i};\
             f = (
@@ -148,6 +182,7 @@ class Model:
                 @ self.inertia[i]
                 @ v[i]
             )
+
             fvp.append(f)
 
             # DEBUG
@@ -163,16 +198,22 @@ class Model:
 
         # for i = model.NB:-1:1
         for i in reversed(range(self.nb)):
+            self.print("joint: " + str(i) + " parent: " + str(self.parent(i)))
             # C(i,1) = S{i}' * fvp{i};
             f = np.squeeze(np.asarray(fvp[i]))
-            C[i] = np.transpose(s[i]) @ f
+            c_value = np.transpose(s[i]) @ f # Can't change order
+            
+            self.print("f: " + str(f))
+            self.print("c_value: " + str(c_value))
+
+            C[i] = c_value
             # if model.parent(i) ~= 0
             if self.parent(i) != None:
                 # fvp{model.parent(i)} = fvp{model.parent(i)} + Xup{i}'*fvp{i};
-                fvp[self.parent(i)] += np.transpose(x_up[i]) @ fvp[i]
+                fvp[self.parent(i)] += np.transpose(x_up[i]) @ fvp[i] # Breaks if you change order
 
         # IC = model.I;				% composite inertia calculation
-        ic = self.inertia
+        ic = copy.deepcopy(self.inertia)
         # for i = model.NB:-1:1
         for i in reversed(range(self.nb)):
             # if model.parent(i) ~= 0
@@ -207,14 +248,21 @@ class Model:
 
         # DEV
         self._print = False
+        self._count += 1
+
         return H, C
 
     def parent(self, i):
         return self._parent[i]
 
     def print(self, msg):
-        if self._print:
-            print(msg)
+        if self._count >= 3:
+            return
+
+        print(msg)
+
+        # if self._print:
+        #     print(msg)
 
     def calculate_global_transform(self):
         global_transform = []
@@ -230,26 +278,12 @@ class Model:
 
         return global_transform
 
-    def calculate_global_transform_v2(self):
-        global_transform = []
-
-        for i in range(self.nb):
-            (x_j, _) = self.jcalc(self.joint_types[i], self.q[i])
-            x = self.joint_transforms[i] @ x_j
-
-            if self.parent(i) != 0:
-                x = global_transform[self.parent(i) - 1] @ x
-
-            global_transform.append(x)
-
-        return global_transform
-
     def apply_external_forces(self, x_up, fvp, f_ext):
         if f_ext is None:
             return fvp
 
         xi_0 = {None: np.eye(6)}
-        f_out = fvp.copy()
+        f_out = copy.deepcopy(fvp)
 
         for i in range(self.nb):
             xi_0[i] = x_up[i] @ xi_0[self.parent(i)]  # pyright: ignore[reportArgumentType]
@@ -270,12 +304,3 @@ class Model:
         pos_b = sp.spatial_to_3d(x, ZERO)
         body = pv.Sphere(center=pos_b, radius=0.1)
         return body
-
-    def state_layout(self):
-        return []
-
-    def record_state(self):
-        return []
-
-    def apply_state(self, state):
-        pass

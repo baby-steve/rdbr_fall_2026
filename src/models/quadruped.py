@@ -12,21 +12,29 @@ class Quadruped(Model):
         l0 = 1  # length of first link
         l1 = 1.5  # length of second link
         rl = 0.1  # radius of link
-        gc = -2.5  # ground clearance
+        gc = -2.0  # ground clearance
+
+        num_legs = 4
 
         q = [
-            -np.pi / 4,
-            np.pi / 2,
-            -np.pi / 4,
-            np.pi / 2,
-            -np.pi / 4,
-            np.pi / 2,
-            -np.pi / 4,
-            np.pi / 2,
+            0.0, # -np.pi / 4, # 0
+            0, # np.pi / 2, # 1
+            0, # -np.pi / 4, # 2
+            0, # np.pi / 2, # 3
+            np.pi / 2, # 4
+            0, # np.pi / 2, # 5
+
+            np.pi / 2, # 6
+            0, # np.pi / 2, # 7
         ]
 
-        parent = [None, 0, None, 2, None, 4, None, 6]
-        joint_types = ["Ry", "Ry"] * 4
+        parent = [
+            None, 0, 
+            None, 2,
+            None, 4, 
+            None, 6,
+        ]
+        joint_types = ["Ry", "Ry"] * num_legs
         joint_transforms = [
             sp.xlt([1.25, 1.0, gc]),
             sp.xlt([0, 0, l0]),
@@ -49,7 +57,7 @@ class Quadruped(Model):
         body_transforms = [
             sp.xlt([0, 0, l0 / 2]),
             sp.xlt([0, 0, l1 / 2]),
-        ] * 4
+        ] * num_legs
 
         # TODO: I have no idea if this is correct.
         com = [np.array([0, 0, l0 / 2]), np.array([0, 0, l1 / 2])]
@@ -57,13 +65,13 @@ class Quadruped(Model):
         inertia = [
             sp.mcI(m[0], com[0], rotational_inertia[0]),
             sp.mcI(m[1], com[1], rotational_inertia[1]),
-        ] * 4
+        ] * num_legs
 
         Model.__init__(
             self, q, parent, joint_types, joint_transforms, body_transforms, inertia
         )
 
-        self.links = [l0, l1] * 4
+        self.links = [l0, l1] * num_legs
         self.colors = ["blue", "green", "red", "purple"]
         self.rl = rl
 

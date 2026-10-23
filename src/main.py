@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from models.double_pendulum import DoublePendulum
+from models.double_pendulum_v2 import DoublePendulum
 from models.quadruped import Quadruped
 from session import PlaybackSession, RunSession
 

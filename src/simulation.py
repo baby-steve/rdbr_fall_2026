@@ -1,7 +1,8 @@
 import numpy as np
 
-from model import Model
+from model_v2 import Model
 
+import contact
 
 class Simulation:
     def __init__(self, model: Model):
@@ -21,6 +22,9 @@ class Simulation:
         # TODO: what gets put in tau and what gets put in f_ext?
         self.tau = np.zeros((self.model.nb, 1))
         f_ext = self.model.joint_forces()
+
+        # t_gc = contact.ground_contact(self.model)
+        # f_ext[7] = np.array([[0], [t_gc], [0], [0], [0], [0]])
 
         # Calculate joint space inertia matrix and the joint space
         # bias force.
