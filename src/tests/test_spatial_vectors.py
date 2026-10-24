@@ -24,14 +24,14 @@ class TestHello(unittest.TestCase):
         # test: axbx = ba.T - (a*b)1_3x3
         a = np.array([1, 2, 3])
         b = np.array([7, 6, 5])
-        
+
         c1 = sv.crv(a) @ sv.crv(b)
         c2 = b.reshape((3, 1)) @ a.reshape((3, 1)).T - a.dot(b) * np.eye(3, 3)
 
-        self.assertTrue((c1 == c2).all())   
+        self.assertTrue((c1 == c2).all())
 
     def test_more_spatial_cross_product_weirdness(self):
-        a = sv.MotionVector(sv.vec3(1, 1, 1), sv.vec3(1, 2, 3))        
+        a = sv.MotionVector(sv.vec3(1, 1, 1), sv.vec3(1, 2, 3))
         b = sv.MotionVector(sv.vec3(1, 1, 1), sv.vec3(5, 6, 7))
 
         c1 = a.cross(b)
@@ -39,6 +39,18 @@ class TestHello(unittest.TestCase):
 
         print(c1)
         print(c2)
+
+    def test_inertia_weirdness(self):
+        m = 1.5
+        c = sv.vec3(1., 2., 3.)
+        I_c = utils.cylinder_inertia(m, 0.5, 1.)
+
+        I_o = np.block([
+            [I_c + m * sv.crv(c) @ sv.crv(c).T, m * sv.crv(c)],
+            [-m * sv.crv(c), m * np.eye(3, 3)]
+        ])
+
+        print(I_o)
 
     def test_sanity_check(self):
         # It's 1:48 AM
