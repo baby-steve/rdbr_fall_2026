@@ -27,6 +27,9 @@ class Model:
     def joint_forces(self):
         return {}
 
+    def gravity(self) -> sv.MotionVector:
+        return sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 9.81))
+
     def jcalc(self, jtype: str, q: float) -> tuple[sv.PluckerTransform, sv.MotionVector]:
         """
         Calculate joint transform and motion subspace for the given
@@ -88,7 +91,7 @@ class Model:
 
         # Gravity expressed as a spatial vector.
         # a_grav = get_gravity(model);
-        a_gravity = sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 9.81))
+        a_gravity = self.gravity()
 
         xup: list[sv.PluckerTransform] = [None] * self.nb  # Joint transforms of each joint from base
         v: list[sv.MotionVector] = [None] * self.nb  # Spatial velocity of each joint
@@ -96,7 +99,7 @@ class Model:
         fvp: list[sv.ForceVector] = [None] * self.nb  # Spatial forces of each joint
         s: list[sv.MotionVector] = [None] * self.nb  # Motion subspace of each joint
 
-        self.print("\n === frame count: " + str(self._count) + " ===\n")
+        # self.print("\n === frame count: " + str(self._count) + " ===\n")
 
         for i in range(self.nb):
             x_j, s[i] = self.jcalc(self.joint_types[i], self.q[i])
@@ -193,6 +196,55 @@ class Model:
                 f_out[i] -= np.linalg.solve(xi_0[i].T, f_ext[i])  # pyright: ignore[reportArgumentType]
 
         return f_out
+
+    def calculate_energy_momentum(self):
+        xup = []
+        v = []
+        hc = []
+        KE = []
+        Ic = copy.deepcopy(self.inertia)
+        
+        for i in range(self.nb):
+            x_j, s = self.jcalc(self.joint_types[i], self.q[i])
+            v_j = s * self.qd[i].item()
+            xup.append(x_j * self.joint_transforms[i])
+            if self.parent[i] == None:
+                v.append(v_j)
+            else:
+                v.append(xup[i].apply(v[self.parent[i]]) + v_j)
+
+            hc.append(Ic[i] * v[i])
+            KE.append(0.5 * v[i].dot(hc[i]))
+
+        I_tot = sv.RigidBodyInertia.default() # np.zeros(np.size(Ic[1]))
+        h_tot = sv.ForceVector.default() # np.zeros(np.size(hc[1]))
+
+        for i in reversed(range(self.nb)):
+            if self.parent[i] != None:
+                Ic[self.parent[i]] += xup[i].apply(Ic[i])
+                hc[self.parent[i]] += xup[i].apply(hc[i])
+            else:
+                I_tot += xup[i].apply(Ic[i])
+                h_tot += xup[i].apply(hc[i])
+
+        a_grav = self.gravity()
+        g = a_grav.v
+        h = h_tot.f
+        mass = I_tot.mass()
+        com = I_tot.com()
+
+        self.com = com
+
+        return {
+            "I_tot": I_tot,
+            "h_tot": h_tot,
+            "KE": sum(KE),
+            "PE": -mass * np.dot(com, g),
+            "mass": mass,
+            "com": com,
+            "com_lv": h / mass,
+        }
+
 
     def color(self, i):
         return "blue"

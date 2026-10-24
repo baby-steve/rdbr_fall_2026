@@ -52,7 +52,7 @@ def skew(A: np.ndarray) -> np.ndarray:
             ]
         )
     else:
-        return np.array([[0, -A[2], A[1]], [A[2], 0, -A[0]], [-A[1], A[1], 0]])
+        return np.array([[0, -A[2], A[1]], [A[2], 0, -A[0]], [-A[1], A[0], 0]])
 
 
 class MotionVector:
@@ -62,6 +62,11 @@ class MotionVector:
 
         self.w = w
         self.v = v
+
+
+    @classmethod
+    def default(cls):
+        return cls(vec3(0., 0., 0.), vec3(0., 0., 0.))
 
 
     def dot(self, fv):
@@ -108,6 +113,11 @@ class ForceVector:
 
         self.n = n
         self.f = f
+
+
+    @classmethod
+    def default(cls):
+        return cls(vec3(0., 0., 0.), vec3(0., 0., 0.))
 
 
     def __mul__(self, other):
@@ -231,10 +241,7 @@ class PluckerTransform:
                 self.E @ (other.I + rxhx + (crv(other.h - other.m * self.r) @ crv(self.r))) @ self.E.T,
             )
         elif type(other) is np.ndarray and other.shape == (3,):
-            # TODO: find r
-            r = self.E @ crv(self.r)
-            a = -skew(self.E.T @ r)
-            return self.E @ (other - a)
+            return self.E @ (other - self.r)
         else:
             raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
 
@@ -276,13 +283,13 @@ class RigidBodyInertia:
     where h is momentum, I is the spatial inertia and v is the spatial velocity.
     See section 2.13 of Featherstone for details.
     """
-    def __init__(self, m: float, c: np.ndarray, I: np.ndarray):
-        assert(c.shape == (3,))
+    def __init__(self, m: float, com: np.ndarray, I: np.ndarray):
+        assert(com.shape == (3,))
         assert(I.shape == (3, 3))
 
-        I = I + m * crv(c) @ crv(c).T
+        I = I + m * crv(com) @ crv(com).T
         assert(I.shape == (3, 3))
-        h = m * c
+        h = m * com
 
         self.m = m
         self.h = h
@@ -290,11 +297,31 @@ class RigidBodyInertia:
 
 
     @classmethod
-    def cylinder(cls, m, r, l, h):
+    def cylinder(cls, m, r, l, c):
         a = (1/12) * m * (3 * r**2 + l**2)
         b = (1/2) * m * (r**2)
         inertia_tensor = np.array([[a, 0., 0.], [0., a, 0.], [0., 0., b]])
-        return cls(m, h, inertia_tensor)
+        return cls(m, c, inertia_tensor)
+
+
+    @classmethod
+    def default(cls):
+        I = np.zeros((3, 3))
+        return cls(0, vec3(0., 0., 0.), I)
+
+
+    def mass(self) -> float:
+        return self.m
+
+
+    def com(self) -> np.ndarray:
+        return self.h / self.m
+
+
+    def rotational_inertia(self) -> np.ndarray:
+        mC = skew(self.h)
+        assert(mC.shape == (3, 3))
+        return self.I - (mC @ mC.T / self.m)
 
 
     def __mul__(self, other):
