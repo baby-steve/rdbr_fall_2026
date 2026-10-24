@@ -1,11 +1,11 @@
-import numpy as np
-import pyvista as pv
 import math
 
-# import spatial_vector as sp
-import utilities as utils
-from model_v2 import Model
+import numpy as np
+import pyvista as pv
+
 import alt_spatial_vector as sv
+from model_v2 import Model
+
 
 class DoublePendulum(Model):
     def __init__(self, l0, l1, m0, m1):
@@ -14,7 +14,7 @@ class DoublePendulum(Model):
         l1 = 1.5  # length of second link
         rl = 0.1  # radius of link
 
-        q = [math.pi / 3.0, 0.0]
+        q = [math.pi / 4.0, 0.0]
         parent = [None, 0]
         joint_types = ["Ry", "Ry"]
 

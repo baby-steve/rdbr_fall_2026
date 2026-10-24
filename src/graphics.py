@@ -4,6 +4,7 @@ import pyvista as pv
 import alt_spatial_vector as sv
 from model_v2 import Model
 
+
 class GraphicsManager:
     model: Model
 
@@ -60,7 +61,7 @@ class GraphicsManager:
         # last_timestep = data.time[-1]  # The last simulated timestep, in seconds.
         # new_start = max(last_timestep - 5, 0) # timestamp 5 seconds ago
         start = 0 # TODO: fix this
-        time_bounds = (data.time[start], data.time[start] + 5)
+        time_bounds = (data.time[start], data.time[-1])
 
         # Update the charts.
         self.position.update(self.plotter, data.time, data.position, start, time_bounds)
@@ -72,7 +73,7 @@ class GraphicsManager:
 
     def update_render_model(self):
         ZERO = sv.vec3(0., 0., 0.)
-        r_j = 0.2  # radius of joint (for rendering purposes)
+        r_j = 0.15  # radius of joint (for rendering purposes)
 
         xs = self.model.calculate_global_transform()
         self.plotter.subplot(0, 1)
@@ -80,7 +81,7 @@ class GraphicsManager:
         for i in range(self.model.nb):
             pos_j = xs[i].apply(ZERO)
 
-            joint = pv.Sphere(center=pos_j, radius=r_j)
+            joint = pv.Cylinder(center=pos_j, radius=r_j, height=0.25, direction=(0, 1, 0))
             body = self.model.appearance(i, xs[i])
             color = self.model.color(i)
 

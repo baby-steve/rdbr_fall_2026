@@ -60,23 +60,23 @@ class RunSession(Session):
         # use case:
         while self.acc >= self.dt:
             # Tick the simulaton.
-            # self.sim.step(self.dt)
+            self.sim.step(self.dt)
 
             # Record current timestamp.
             # TODO: should we record substeps?
-            # self.data.time.append(self.elapsed)
+            self.data.time.append(self.elapsed)
 
-            # # Record joint positions.
-            # for i, q in enumerate(self.model.q):
-            #     self.data.position[i].append(q)
+            # Record joint positions.
+            for i, q in enumerate(self.model.q):
+                self.data.position[i].append(q)
 
-            # # Record joint velocities
-            # for i, qd in enumerate(self.model.qd):
-            #     self.data.velocity[i].append(qd)
+            # Record joint velocities
+            for i, qd in enumerate(self.model.qd):
+                self.data.velocity[i].append(qd)
 
-            # # Record joint torques
-            # for i, tau in enumerate(self.sim.tau):
-            #     self.data.torque[i].append(tau[0])
+            # Record joint torques
+            for i, tau in enumerate(self.sim.tau):
+                self.data.torque[i].append(tau[0])
 
             self.acc -= self.dt
             self.elapsed += self.dt

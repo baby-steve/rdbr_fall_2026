@@ -1,10 +1,9 @@
+import copy
+
 import numpy as np
 import pyvista as pv
-from math import inf
 
-# import spatial_vector as sp
 import alt_spatial_vector as sv
-import copy
 
 
 class Model:
@@ -16,11 +15,11 @@ class Model:
         self.qd = np.empty(len(q))
 
         self.parent = parent
-        
+
         self.joint_types = joint_types
         self.joint_transforms = joint_transforms
         self.body_transforms = body_transforms
-        
+
         self.inertia = inertia
         self._print = True
         self._count = 0
@@ -52,19 +51,19 @@ class Model:
         if jtype == "Rx":
             # Revolute x-axis
             return (
-                sv.PluckerTransform.rotx(q), 
+                sv.PluckerTransform.rotx(q),
                 sv.MotionVector(sv.vec3(1., 0., 0.), sv.vec3(0., 0., 0.))
             )
         elif jtype == "Ry":
             # Revolute y-axis
             return (
-                sv.PluckerTransform.roty(q), 
+                sv.PluckerTransform.roty(q),
                 sv.MotionVector(sv.vec3(0., 1., 0.), sv.vec3(0., 0., 0.))
             )
         elif jtype == "Rz":
             # Revolute z-axis
             return (
-                sv.PluckerTransform.rotz(q), 
+                sv.PluckerTransform.rotz(q),
                 sv.MotionVector(sv.vec3(0., 0., 1.), sv.vec3(0., 0., 0.))
             )
         else:
@@ -99,80 +98,47 @@ class Model:
 
         self.print("\n === frame count: " + str(self._count) + " ===\n")
 
-        # for i = 1:model.NB
         for i in range(self.nb):
-            self.print("joint " + str(i))
-            # [ XJ, S{i} ] = jcalc( model.jtype{i}, q(i) );
             x_j, s[i] = self.jcalc(self.joint_types[i], self.q[i])
-            # vJ = S{i}*qd(i);
             v_j = s[i] * self.qd[i].item() # `.item()` converts np float to python float
-            # Xup{i} = XJ * model.Xtree{i};
             xup[i] = x_j * self.joint_transforms[i]
-            
-            # if model.parent(i) == 0
+
             if self.parent[i] == None:
-                # v{i} = vJ;
                 v[i] = v_j
-                # avp{i} = Xup{i} * -a_grav;
                 avp[i] = xup[i].apply(a_gravity) # Can't switch order
             else:
-                # v{i} = Xup{i}*v{model.parent(i)} + vJ;
-                v[i] = xup[i].apply(v[self.parent[i]]) + v_j # Can't switch order
-                # avp{i} = Xup{i}*avp{model.parent(i)} + crm(v{i})*vJ;
+                v[i] = xup[i].apply(v[self.parent[i]]) + v_j
                 avp[i] = xup[i].apply(avp[self.parent[i]]) + v[i].cross(v_j)
-                
 
-            # fvp{i} = model.I{i}*avp{i} + crf(v{i})*model.I{i}*v{i};
             fvp[i] = self.inertia[i] * avp[i] + v[i].cross(self.inertia[i] * v[i])
-        # ENDFOR
 
         fvp = self.apply_external_forces(xup, fvp, f_ext)
-        # DEBUG
-        self.print(("fvp", fvp))
 
         C = np.zeros([self.nb, 1])
 
-        # for i = model.NB:-1:1
         for i in reversed(range(self.nb)):
             C[i] = s[i].dot(fvp[i])
-            # if model.parent(i) ~= 0
             if self.parent[i] != None:
-                # fvp{model.parent(i)} = fvp{model.parent(i)} + Xup{i}'*fvp{i};
-                fvp[self.parent[i]] += xup[i].apply(fvp[i]) # Breaks if you change order
+                fvp[self.parent[i]] += xup[i].apply(fvp[i])
 
-        # IC = model.I;				% composite inertia calculation
+        # Composite inertia calculation
+        # Clone our array of inertias so that we don't mutate the data
+        # inside, which breaks things.
         ic = copy.deepcopy(self.inertia)
-        # for i = model.NB:-1:1
         for i in reversed(range(self.nb)):
-            # if model.parent(i) ~= 0
             if self.parent[i] != None:
-                # IC{model.parent(i)} = IC{model.parent(i)} + Xup{i}'*IC{i}*Xup{i};
                 ic[self.parent[i]] += xup[i].apply(ic[i])
 
-        # H = zeros(model.NB);
         H = np.zeros((self.nb, self.nb))
-        # for i = 1:model.NB
         for i in range(self.nb):
-            # fh = IC{i} * S{i};
             fh = ic[i] * s[i]
-            # H(i,i) = S{i}' * fh;
             H[i, i] = s[i].dot(fh)
-            # j = i;
             j = i
-            # while model.parent(j) > 0
             while self.parent[j] != None:
-                # fh = Xup{j}' * fh;
                 fh = xup[j].apply(fh)
-                # j = model.parent(j);
                 j = self.parent[j]
-                # H(i,j) = S{j}' * fh;
                 H[i, j] = s[j].dot(fh)
-                # H(j,i) = H(i,j);
                 H[j, i] = H[i, j]
-
-        # DEBUG
-        self.print(("H", H))
-        self.print(("C", C))
 
         # DEV
         self._print = False
@@ -195,34 +161,36 @@ class Model:
         for i in range(self.nb):
             self.print(("joint", i))
             (x_j, _) = self.jcalc(self.joint_types[i], self.q[i])
-            # x = x_j * self.joint_transforms[i]
-            x = x_j * self.joint_transforms[i]
+            x_t = self.joint_transforms[i]
+            x = x_t * x_j # DEBUG: X_T is the position of the joint.
 
-            self.print((x_j * self.joint_transforms[i]).r)
-            self.print((self.joint_transforms[i] * x_j).r)
+            self.print(x_j * self.joint_transforms[i])
+            self.print(self.joint_transforms[i] * x_j)
 
             if self.parent[i] != None:
-                x = x * global_transform[self.parent[i]]
+                x = global_transform[self.parent[i]] * x
+                x_t = x_t * global_transform[self.parent[i]]
 
-                self.print((x * global_transform[self.parent[i]]).r)
-                self.print((global_transform[self.parent[i]] * x).r)
+                self.print(x * global_transform[self.parent[i]])
+                self.print(global_transform[self.parent[i]] * x)
 
             global_transform.append(x)
 
         self._count = 10
         return global_transform
 
+
     def apply_external_forces(self, x_up, fvp, f_ext):
         if f_ext is None:
             return fvp
 
-        xi_0 = {None: np.eye(6)}
+        xi_0 = {None: sv.PluckerTransform.xlt(sv.vec3(0., 0., 0.))}
         f_out = copy.deepcopy(fvp)
 
-        # for i in range(self.nb):
-        #     xi_0[i] = x_up[i] @ xi_0[self.parent[i]]  # pyright: ignore[reportArgumentType]
-        #     if i in f_ext:
-        #         f_out[i] -= np.linalg.solve(xi_0[i].T, f_ext[i])  # pyright: ignore[reportArgumentType]
+        for i in range(self.nb):
+            xi_0[i] = x_up[i] * xi_0[self.parent[i]]  # pyright: ignore[reportArgumentType]
+            if i in f_ext:
+                f_out[i] -= np.linalg.solve(xi_0[i].T, f_ext[i])  # pyright: ignore[reportArgumentType]
 
         return f_out
 
