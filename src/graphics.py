@@ -84,13 +84,27 @@ class GraphicsManager:
         com = pv.Sphere(center=self.model.com, radius=0.1)
         self.plotter.add_mesh(com, color="red", name="com_viz", render=False)
 
+        # DEV: We need to find the positions of the joints and bodies relative to
+        # the origin point of the base frame for rendering purposes.
+        # We begin in the base frame. Assuming that the center of the base is at the
+        # origin, the first joint transform is the position of the joint.
+        # j_pos_1 = self.model.joint_transforms[0].r
+        # joint = pv.Cylinder(center=j_pos_1, radius=r_j, height=0.1, direction=(0, 1, 0))
+        # self.plotter.add_mesh(joint, color="orange", name="a_joint_1", render=False)
+
+        # b_pos_1 = j_pos_1
+        # body = pv.Cylinder(center=b_pos_1, height=0.4, radius=0.025)
+        # self.plotter.add_mesh(body, color="orange", name="a_body_1", render=False)
+
         xs = self.model.calculate_global_transform()
 
         for i in range(self.model.nb):
-            pos_j = xs[i].apply(ZERO)
+            pos_j = xs[i].inv_apply(ZERO)
 
             joint = pv.Cylinder(center=pos_j, radius=r_j, height=0.1, direction=(0, 1, 0))
+            
             body = self.model.appearance(i, xs[i])
+            
             color = self.model.color(i)
 
             joint_name = "joint" + str(i + 1)

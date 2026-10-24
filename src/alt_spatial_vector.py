@@ -260,6 +260,11 @@ class PluckerTransform:
             )
         elif type(other) is RigidBodyInertia:
             raise RuntimeError("Not yet implemented")
+        elif type(other) is np.ndarray and other.shape == (3,):
+            # inv_x = self.inv()
+            inv_E = self.E.T
+            inv_r = -self.E @ self.r
+            return inv_E @ (other - inv_r)
         else:
             raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
 

@@ -24,6 +24,8 @@ class Model:
         self._print = True
         self._count = 0
 
+        self.com = sv.vec3(0, 0, 0)
+
     def joint_forces(self):
         return {}
 
@@ -159,27 +161,23 @@ class Model:
         #     print(msg)
 
     def calculate_global_transform(self) -> list[sv.PluckerTransform]:
+        """
+        Calculate the Plucker transform of each body that transforms some point
+        from the body's frame to the base coordinate system (see section 4.2 of 
+        Featherstone's "Rigid Body Dynamics Algorithms").
+        """
         global_transform = []
 
         for i in range(self.nb):
-            self.print(("joint", i))
             (x_j, _) = self.jcalc(self.joint_types[i], self.q[i])
             x_t = self.joint_transforms[i]
-            x = x_t * x_j # DEBUG: X_T is the position of the joint.
-
-            self.print(x_j * self.joint_transforms[i])
-            self.print(self.joint_transforms[i] * x_j)
+            x = x_j * x_t
 
             if self.parent[i] != None:
-                x = global_transform[self.parent[i]] * x
-                x_t = x_t * global_transform[self.parent[i]]
-
-                self.print(x * global_transform[self.parent[i]])
-                self.print(global_transform[self.parent[i]] * x)
-
+                x = x * global_transform[self.parent[i]]
+                
             global_transform.append(x)
 
-        self._count = 10
         return global_transform
 
 
