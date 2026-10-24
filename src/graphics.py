@@ -35,7 +35,7 @@ class GraphicsManager:
         # body = pv.Cube(x_length=3.0, y_length=2.0, z_length=0.5, center=[0, 0, 2.5])
         # self.plotter.add_mesh(body, color="dark_gray")
 
-        plane = pv.Plane(i_size=10, j_size=10, i_resolution=4, j_resolution=4)
+        plane = pv.Plane(i_size=2, j_size=2, i_resolution=4, j_resolution=4)
         self.plotter.add_mesh(plane, color="#DDDDDD", show_edges=True)
 
         self.plotter.show_axes()  # pyright: ignore[reportCallIssue]
@@ -52,6 +52,9 @@ class GraphicsManager:
         self.torque = SimDataChart(
             self.plotter, ("time", "tau"), (2, 0), model, model.nb
         )
+        self.energy = SimDataChart(
+            self.plotter, ("time (s)", "energy (J)"), (3, 0), model, 3,
+        )
 
     def update(self, data):
         # Update render model state.
@@ -67,21 +70,26 @@ class GraphicsManager:
         self.position.update(self.plotter, data.time, data.position, start, time_bounds)
         self.velocity.update(self.plotter, data.time, data.velocity, start, time_bounds)
         self.torque.update(self.plotter, data.time, data.torque, start, time_bounds)
+        self.energy.update(self.plotter, data.time, data.energy, start, time_bounds)
 
         # Draw model and charts.
         self.plotter.update()
 
     def update_render_model(self):
         ZERO = sv.vec3(0., 0., 0.)
-        r_j = 0.15  # radius of joint (for rendering purposes)
+        r_j = 0.05  # radius of joint (for rendering purposes)
+
+        self.plotter.subplot(0, 1)
+
+        com = pv.Sphere(center=self.model.com, radius=0.1)
+        self.plotter.add_mesh(com, color="red", name="com_viz", render=False)
 
         xs = self.model.calculate_global_transform()
-        self.plotter.subplot(0, 1)
 
         for i in range(self.model.nb):
             pos_j = xs[i].apply(ZERO)
 
-            joint = pv.Cylinder(center=pos_j, radius=r_j, height=0.25, direction=(0, 1, 0))
+            joint = pv.Cylinder(center=pos_j, radius=r_j, height=0.1, direction=(0, 1, 0))
             body = self.model.appearance(i, xs[i])
             color = self.model.color(i)
 

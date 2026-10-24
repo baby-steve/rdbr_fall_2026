@@ -78,6 +78,14 @@ class RunSession(Session):
             for i, tau in enumerate(self.sim.tau):
                 self.data.torque[i].append(tau[0])
 
+            sys_state = self.model.calculate_energy_momentum()
+            ke = sys_state["KE"]
+            pe = sys_state["PE"]
+            tot = ke + pe
+            self.data.energy[0].append(ke)
+            self.data.energy[1].append(pe)
+            self.data.energy[2].append(tot)
+
             self.acc -= self.dt
             self.elapsed += self.dt
 

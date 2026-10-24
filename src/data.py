@@ -9,6 +9,7 @@ class DataManager:
         self.velocity = []  # nb x n
         self.torque = []  # nb x n
         self.impact_force = []  # nl x n
+        self.energy = [[0.0], [0.0], [0.0]] # 3 x n
 
         for i, q_i in enumerate(model.q):
             self.position.append([q_i])
