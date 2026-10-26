@@ -3,6 +3,7 @@ import sys
 
 from models.double_pendulum_v2 import DoublePendulum
 from models.quadruped import Quadruped
+from models.lever import Lever
 from session import PlaybackSession, RunSession
 
 parser = argparse.ArgumentParser()
@@ -24,6 +25,8 @@ if args.subparser_name == "run":
         model = DoublePendulum(1, 1.5, 1.25, 1.25)
     elif model_name == "Quadruped":
         model = Quadruped(1.0, 1.5, 1.0, 1.0)
+    elif model_name == "Lever":
+        model = Lever()
     else:
         raise RuntimeError("Invalid model name: " + str(model_name))
 
