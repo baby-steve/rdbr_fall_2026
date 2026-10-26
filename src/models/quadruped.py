@@ -1,11 +1,11 @@
-import numpy as np
-import pyvista as pv
 import math
 
-import alt_spatial_vector as sv
-import utilities as utils
-from model_v2 import Model
+import numpy as np
+
 import graphics
+import spatial_vector as sv
+from model import Model
+
 
 class Quadruped(Model):
     def __init__(self, l0, l1, m0, m1):
@@ -32,9 +32,9 @@ class Quadruped(Model):
         ]
 
         parent = [
-            None, 0, 
+            None, 0,
             None, 2,
-            None, 4, 
+            None, 4,
             None, 6,
         ]
         joint_types = ["Ry", "Ry"] * num_legs
@@ -52,11 +52,6 @@ class Quadruped(Model):
         # Mass of each leg, in kgs
         m = [m0, m1]
 
-        body_transforms = [
-            sv.PluckerTransform.xlt(sv.vec3(0, 0, l0 / 2)),
-            sv.PluckerTransform.xlt(sv.vec3(0, 0, l1 / 2)),
-        ] * num_legs
-
         # TODO: I have no idea if this is correct.
         com = [np.array([0, 0, l0 / 2]), np.array([0, 0, l1 / 2])]
 
@@ -65,26 +60,23 @@ class Quadruped(Model):
             sv.RigidBodyInertia.cylinder(m[0], rl, l1, com[1]),
         ] * num_legs
 
-
         Model.__init__(
-            self, q, parent, joint_types, joint_transforms, body_transforms, inertia
+            self, q, parent, joint_types, joint_transforms, [], inertia
         )
 
-        self.links = [l0, l1] * num_legs
         self.colors = ["blue", "green", "red", "purple"]
-        self.rl = rl
 
         self.gc_body = np.array([0, 1, 2, 3, 4, 5, 6, 7])
         # Locations of contact points expressed in local coordinates.
         self.gc_point = np.array([
             sv.vec3(0., 0., 0.4),
-            sv.vec3(0., 0., 0.5), 
-            sv.vec3(0., 0., 0.4), 
-            sv.vec3(0., 0., 0.5), 
-            sv.vec3(0., 0., 0.4), 
             sv.vec3(0., 0., 0.5),
             sv.vec3(0., 0., 0.4),
-            sv.vec3(0., 0., 0.5), 
+            sv.vec3(0., 0., 0.5),
+            sv.vec3(0., 0., 0.4),
+            sv.vec3(0., 0., 0.5),
+            sv.vec3(0., 0., 0.4),
+            sv.vec3(0., 0., 0.5),
         ])
 
         self.appearance = { }
@@ -134,4 +126,3 @@ class Quadruped(Model):
         #     f_ext[i] = f
 
         return f_ext
-

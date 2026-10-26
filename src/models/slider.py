@@ -4,7 +4,7 @@ import numpy as np
 
 import graphics
 import spatial_vector as sv
-from model_v2 import Model
+from model import Model
 
 
 class Slider(Model):

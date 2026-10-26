@@ -1,11 +1,10 @@
 import math
 
 import numpy as np
-import pyvista as pv
 
-import alt_spatial_vector as sv
-from model_v2 import Model
 import graphics
+import spatial_vector as sv
+from model import Model
 
 
 class DoublePendulum(Model):
@@ -16,7 +15,7 @@ class DoublePendulum(Model):
         rl = 0.025  # radius of link (about 1 inch)
 
         # Calculate mass of each link by selecting some uniform density
-        # and multplying that by the volume of each joint. 
+        # and multplying that by the volume of each joint.
         rho = 2700 # density (roughly the same density as aluminum)
         m0 = math.pi * (rl ** 2) * l0 * rho
         m1 = math.pi * (rl ** 2) * l1 * rho
@@ -42,7 +41,7 @@ class DoublePendulum(Model):
 
         # TODO: I have no idea if this is correct.
         com = [
-            np.array([0, 0, l0 / 2]), 
+            np.array([0, 0, l0 / 2]),
             np.array([0, 0, l1 / 2]),
             # np.array([0, 0, l1 / 2]),
         ]
@@ -96,4 +95,3 @@ class DoublePendulum(Model):
 
     def joint_forces(self):
         return {}
-

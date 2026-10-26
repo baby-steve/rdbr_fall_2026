@@ -1,9 +1,11 @@
+import copy
+
 import numpy as np
 import pyvista as pv
 
-import spatial_vector as sp
-import copy
+import alt_spatial_vector as sv
 
+GRAVITY = sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 9.81))
 
 class Model:
     def __init__(
@@ -11,19 +13,42 @@ class Model:
     ):
         self.nb = len(joint_types)
         self.q = np.array(q)
-        self.qd = np.zeros(len(q))
-        self._parent = parent
+        self.qd = np.empty(len(q))
+
+        self.parent = parent
+
         self.joint_types = joint_types
         self.joint_transforms = joint_transforms
         self.body_transforms = body_transforms
+
         self.inertia = inertia
         self._print = True
         self._count = 0
 
+        self.com = sv.vec3(0, 0, 0)
+        self.gc_body = np.array([0, 1])
+        # Locations of contact points expressed in local coordinates.
+        self.gc_point = np.array([sv.vec3(0., 0., 0.4), sv.vec3(0., 0., 0.5)])
+
+        # Cache arrays used in various algorithms. The content in these should be
+        # overwritten in any routine that might use them. 
+        # Joint transforms of each joint from base.
+        self.xup: list[sv.PluckerTransform] = [None] * self.nb  
+        # Spatial velocity of each joint.
+        self.v: list[sv.MotionVector] = [None] * self.nb  
+        # Spatial Acceleration of each joint.
+        self.avp: list[sv.MotionVector] = [None] * self.nb  
+        # Spatial forces of each joint.
+        self.fvp: list[sv.ForceVector] = [None] * self.nb  
+        # Motion subspace of each joint.
+        self.s: list[sv.MotionVector] = [None] * self.nb  
+
+
     def joint_forces(self):
         return {}
 
-    def jcalc(self, jtype, q):
+
+    def jcalc(self, jtype: str, q: float) -> tuple[sv.PluckerTransform, sv.MotionVector]:
         """
         Calculate joint transform and motion subspace for the given
         joint type descriptor.
@@ -46,13 +71,22 @@ class Model:
 
         if jtype == "Rx":
             # Revolute x-axis
-            return (sp.rotx(q), np.array([[1], [0], [0], [0], [0], [0]]))
+            return (
+                sv.PluckerTransform.rotx(q),
+                sv.MotionVector(sv.vec3(1., 0., 0.), sv.vec3(0., 0., 0.))
+            )
         elif jtype == "Ry":
             # Revolute y-axis
-            return (sp.roty(q), np.array([[0], [1], [0], [0], [0], [0]]))
+            return (
+                sv.PluckerTransform.roty(q),
+                sv.MotionVector(sv.vec3(0., 1., 0.), sv.vec3(0., 0., 0.))
+            )
         elif jtype == "Rz":
             # Revolute z-axis
-            return (sp.rotz(q), np.array([[0], [0], [1], [0], [0], [0]]))
+            return (
+                sv.PluckerTransform.rotz(q),
+                sv.MotionVector(sv.vec3(0., 0., 1.), sv.vec3(0., 0., 0.))
+            )
         else:
             raise RuntimeError("Unexpected joint type: " + jtype)
 
@@ -73,178 +107,47 @@ class Model:
         Returns the coefficients H and C.
         """
 
-        def select(i, a, b):
-            return a @ b
-            # if i == 4 or i == 5:
-            #     return b @ a
-            # else:
-            #     return a @ b
-
-        # Gravity expressed as a spatial vector.
-        # a_grav = get_gravity(model);
-        a_gravity = np.array([[0], [0], [0], [0], [0], [-9.81]])
-        # a_gravity = np.array([[0], [0], [0], [0], [0], [0]])
-
-        x_up = []  # Joint transforms of each joint from base
-        v = []  # Spatial velocity of each joint
-        avp = []  # Spatial Acceleration of each joint
-        fvp = []  # Spatial forces of each joint
-        s = []  # Motion subspace of each joint
-
-        self.print("\n === frame count: " + str(self._count) + " ===\n")
-
-        # for i = 1:model.NB
         for i in range(self.nb):
-            self.print("joint " + str(i))
-            # self.print("Iteration " + str(i + 1))
-            # [ XJ, S{i} ] = jcalc( model.jtype{i}, q(i) );
-            (x_j, s_i) = self.jcalc(self.joint_types[i], self.q[i])
-            s.append(s_i)
+            x_j, self.s[i] = self.jcalc(self.joint_types[i], self.q[i])
+            v_j = self.s[i] * self.qd[i].item() # `.item()` converts np float to python float
+            self.xup[i] = x_j * self.joint_transforms[i]
 
-            # Joint velocity (spatial vector)
-            # vJ = S{i}*qd(i);
-            v_j = s_i * self.qd[i]
-            # self.print(("v_j", v_j))
-
-            # Xup{i} = XJ * model.Xtree{i};
-            # x_up_i = self.joint_transforms[i] @ x_j
-            x_up_i = select(i, x_j, self.joint_transforms[i])
-            x_up.append(x_up_i)
-            # if i == 4 or i == 5:
-            #     x_up_i = self.joint_transforms[i] @ x_j
-            #     x_up.append(x_up_i)
-            # else:
-            #     x_up_i = x_j @ self.joint_transforms[i]
-            #     x_up.append(x_up_i)
-            
-
-            # if model.parent(i) == 0
-            if self.parent(i) == None:
-                # v{i} = vJ;
-                v.append(v_j)
-
-                # avp{i} = Xup{i} * -a_grav;
-                avp_i = np.asarray(x_up_i) @ a_gravity # Can't switch order
-                avp.append(avp_i)
+            if self.parent[i] == None:
+                self.v[i] = v_j
+                self.avp[i] = self.xup[i].apply(GRAVITY) # Can't switch order
             else:
-                # v{i} = Xup{i}*v{model.parent(i)} + vJ;
-                v_i = (np.asarray(x_up_i) @ v[self.parent(i)]) + v_j # Can't switch order
+                self.v[i] = self.xup[i].apply(self.v[self.parent[i]]) + v_j
+                self.avp[i] = self.xup[i].apply(self.avp[self.parent[i]]) + self.v[i].cross(v_j)
 
-                # BUG: v_i is a matrix instead of an array
-                # and that just makes everything that much harder.
-                v_i = np.squeeze(np.asarray(v_i)).reshape((6, 1))
-                v.append(v_i)
+            self.fvp[i] = self.inertia[i] * self.avp[i] + self.v[i].cross(self.inertia[i] * self.v[i])
 
-                # avp{i} = Xup{i}*avp{model.parent(i)} + crm(v{i})*vJ;
-                avp_i = np.asarray(x_up_i) @ avp[self.parent(i)] + sp.crm(
-                    v_i.reshape((6,))
-                ) @ v_j.reshape(6, 1)
-
-                avp.append(avp_i)
-
-            # DEBUG
-            self.print(("inertia", self.inertia[i]))
-            # self.print(("x_up_i", x_up[i]))
-            calc = (
-                # self.inertia[i] @ avp[i]
-                
-                # + 
-                sp.crf(
-                    v[i].reshape(
-                        6,
-                    )
-                )
-                @ self.inertia[i]
-                @ v[i]
-            )
-            # self.print(("calcs", calc))
-            # self.print(("avp", avp[i]))
-            # self.print(("v", v[i]))
-            # self.print(
-            #     (
-            #         "crf(v)",
-            #         sp.crf(
-            #             v[i].reshape(
-            #                 6,
-            #             )
-            #         ),
-            #     )
-            # )
-
-            # fvp{i} = model.I{i}*avp{i} + crf(v{i})*model.I{i}*v{i};\
-            f = (
-                self.inertia[i] @ avp[i]
-                + sp.crf(
-                    v[i].reshape(
-                        6,
-                    )
-                )
-                @ self.inertia[i]
-                @ v[i]
-            )
-
-            fvp.append(f)
-
-            # DEBUG
-            self.print(("f", f))
-            assert f.shape == (6, 1)
-        # ENDFOR
-
-        fvp = self.apply_external_forces(x_up, fvp, f_ext)
-        # DEBUG
-        self.print(("fvp", fvp))
+        self.fvp = self.apply_external_forces(self.xup, self.fvp, f_ext)
 
         C = np.zeros([self.nb, 1])
 
-        # for i = model.NB:-1:1
         for i in reversed(range(self.nb)):
-            self.print("joint: " + str(i) + " parent: " + str(self.parent(i)))
-            # C(i,1) = S{i}' * fvp{i};
-            f = np.squeeze(np.asarray(fvp[i]))
-            c_value = np.transpose(s[i]) @ f # Can't change order
-            
-            self.print("f: " + str(f))
-            self.print("c_value: " + str(c_value))
+            C[i] = self.s[i].dot(self.fvp[i])
+            if self.parent[i] != None:
+                self.fvp[self.parent[i]] += self.xup[i].apply(self.fvp[i])
 
-            C[i] = c_value
-            # if model.parent(i) ~= 0
-            if self.parent(i) != None:
-                # fvp{model.parent(i)} = fvp{model.parent(i)} + Xup{i}'*fvp{i};
-                fvp[self.parent(i)] += np.transpose(x_up[i]) @ fvp[i] # Breaks if you change order
-
-        # IC = model.I;				% composite inertia calculation
+        # Composite inertia calculation
+        # Clone our array of inertias so that we don't mutate the data
+        # inside, which breaks things.
         ic = copy.deepcopy(self.inertia)
-        # for i = model.NB:-1:1
         for i in reversed(range(self.nb)):
-            # if model.parent(i) ~= 0
-            if self.parent(i) != None:
-                # IC{model.parent(i)} = IC{model.parent(i)} + Xup{i}'*IC{i}*Xup{i};
-                ic[self.parent(i)] += np.transpose(x_up[i]) @ ic[i] @ x_up[i]
+            if self.parent[i] != None:
+                ic[self.parent[i]] += self.xup[i].apply(ic[i])
 
-        # H = zeros(model.NB);
         H = np.zeros((self.nb, self.nb))
-        # for i = 1:model.NB
         for i in range(self.nb):
-            # fh = IC{i} * S{i};
-            fh = ic[i] @ s[i]
-            # H(i,i) = S{i}' * fh;
-            H[i, i] = (np.transpose(s[i]) @ fh)[0][0]
-            # j = i;
+            fh = ic[i] * self.s[i]
+            H[i, i] = self.s[i].dot(fh)
             j = i
-            # while model.parent(j) > 0
-            while self.parent(j) != None:
-                # fh = Xup{j}' * fh;
-                fh = np.transpose(np.asarray(x_up[j])) @ fh
-                # j = model.parent(j);
-                j = self.parent(j)
-                # H(i,j) = S{j}' * fh;
-                H[i, j] = (np.transpose(s[j]) @ fh)[0][0]
-                # H(j,i) = H(i,j);
+            while self.parent[j] != None:
+                fh = self.xup[j].apply(fh)
+                j = self.parent[j]
+                H[i, j] = self.s[j].dot(fh)
                 H[j, i] = H[i, j]
-
-        # DEBUG
-        self.print(("H", H))
-        self.print(("C", C))
 
         # DEV
         self._print = False
@@ -252,11 +155,8 @@ class Model:
 
         return H, C
 
-    def parent(self, i):
-        return self._parent[i]
-
     def print(self, msg):
-        if self._count >= 3:
+        if self._count >= 10:
             return
 
         print(msg)
@@ -264,43 +164,126 @@ class Model:
         # if self._print:
         #     print(msg)
 
-    def calculate_global_transform(self):
+    def calculate_global_transform(self) -> list[sv.PluckerTransform]:
+        """
+        Calculate the Plucker transform of each body that transforms some point
+        from the body's frame to the base coordinate system (see section 4.2 of 
+        Featherstone's "Rigid Body Dynamics Algorithms").
+        """
         global_transform = []
 
         for i in range(self.nb):
             (x_j, _) = self.jcalc(self.joint_types[i], self.q[i])
-            x = self.joint_transforms[i] @ x_j
+            x_t = self.joint_transforms[i]
+            x = x_j * x_t
 
-            if self.parent(i) != None:
-                x = global_transform[self.parent(i)] @ x
-
+            if self.parent[i] != None:
+                x = x * global_transform[self.parent[i]]
+                
             global_transform.append(x)
 
         return global_transform
 
+
     def apply_external_forces(self, x_up, fvp, f_ext):
+        # NOTE: this applies all external forces to all joints.
+
         if f_ext is None:
             return fvp
 
-        xi_0 = {None: np.eye(6)}
         f_out = copy.deepcopy(fvp)
+        x = []
 
         for i in range(self.nb):
-            xi_0[i] = x_up[i] @ xi_0[self.parent(i)]  # pyright: ignore[reportArgumentType]
+            if self.parent[i] == None:
+                x.append(x_up[i])
+            else:
+                x.append(x_up[i] * x[self.parent[i]])
+            
             if i in f_ext:
-                f_out[i] -= np.linalg.solve(xi_0[i].T, f_ext[i])  # pyright: ignore[reportArgumentType]
+                xa = x[i].as_array()
+                fa = f_ext[i].as_array()
+                fr = np.linalg.solve(xa.T, fa)
+                # print(f_ext[i].f)
+                f_out[i] -= sv.ForceVector(fr[0:3].reshape(3,), fr[3:6].reshape(3,))  # pyright: ignore[reportArgumentType]
 
         return f_out
 
-    def color(self, i):
-        return "blue"
+    def calculate_energy_momentum(self):
+        xup = []
+        v = []
+        hc = []
+        KE = []
+        Ic = copy.deepcopy(self.inertia)
+        
+        for i in range(self.nb):
+            x_j, s = self.jcalc(self.joint_types[i], self.q[i])
+            v_j = s * self.qd[i].item()
+            xup.append(x_j * self.joint_transforms[i])
+            if self.parent[i] == None:
+                v.append(v_j)
+            else:
+                v.append(xup[i].apply(v[self.parent[i]]) + v_j)
 
-    def appearance(self, i, x_up):
-        """
-        Return the geometry of the ith body of this model.
-        """
-        ZERO = [[0], [0], [0]]
-        x = x_up * self.body_transforms[i]
-        pos_b = sp.spatial_to_3d(x, ZERO)
-        body = pv.Sphere(center=pos_b, radius=0.1)
-        return body
+            hc.append(Ic[i] * v[i])
+            KE.append(0.5 * v[i].dot(hc[i]))
+
+        I_tot = sv.RigidBodyInertia.default() # np.zeros(np.size(Ic[1]))
+        h_tot = sv.ForceVector.default() # np.zeros(np.size(hc[1]))
+
+        for i in reversed(range(self.nb)):
+            if self.parent[i] != None:
+                Ic[self.parent[i]] += xup[i].apply(Ic[i])
+                hc[self.parent[i]] += xup[i].apply(hc[i])
+            else:
+                I_tot += xup[i].apply(Ic[i])
+                h_tot += xup[i].apply(hc[i])
+
+        a_grav = GRAVITY
+        g = a_grav.v
+        h = h_tot.f
+        mass = I_tot.mass()
+        com = I_tot.com()
+
+        self.com = com
+
+        return {
+            "I_tot": I_tot,
+            "h_tot": h_tot,
+            "KE": sum(KE),
+            "PE": -mass * np.dot(com, g),
+            "mass": mass,
+            "com": com,
+            "com_lv": h / mass,
+        }
+
+
+    def calculate_pos_vel(self):
+        xa = [None] * self.nb # self.xup
+        vb = [None] * self.nb # self.v
+
+        # Calculate velocity and collect joint transforms.
+        for i in range(self.nb):
+            x_j, s = self.jcalc(self.joint_types[i], self.q[i])
+            xup = x_j * self.joint_transforms[i]
+            v_j = s * self.qd[i].item()
+            if self.parent[i] == None:
+                xa[i] = xup
+                vb[i] = v_j
+            else:
+                xa[i] = xup * xa[self.parent[i]]
+                vb[i] = xup.apply(vb[self.parent[i]]) + v_j
+
+        pos = np.zeros((self.nb, 3))
+        vel = np.zeros((self.nb, 3))
+        
+        for i in self.gc_body:
+            iset = self.gc_body == i
+            v = xa[i].inv_apply(vb[i])
+
+            pt = xa[i].inv_apply(self.gc_point[iset, :].reshape(3,))
+            vpt = v.as_point(pt)
+            pos[iset, :] = pt
+            vel[iset, :] = vpt
+
+        return pos, vel
