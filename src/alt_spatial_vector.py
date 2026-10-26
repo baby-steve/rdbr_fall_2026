@@ -91,6 +91,12 @@ class MotionVector:
                                and {type(other)} is not defined")
 
 
+    def as_point(self, p: np.ndarray) -> np.ndarray:
+        assert(p.shape == (3,))
+        # TODO: multiple points.
+        return self.v + np.cross(self.w, p)
+
+
     def __mul__(self, other):
         # Scalar multiplication
         if type(other) is float:
@@ -120,6 +126,18 @@ class ForceVector:
         return cls(vec3(0., 0., 0.), vec3(0., 0., 0.))
 
 
+    @classmethod
+    def from_linear(cls, f, p):
+        """
+        Converts linear force f acting at point p into spatial force vector.
+        """
+        return cls(np.cross(p, f), f)
+
+
+    def as_array(self):
+        return np.block([self.n, self.f]).reshape((6, 1))
+
+
     def __mul__(self, other):
         # Scalar multiplication
         if type(other) is float:
@@ -134,6 +152,12 @@ class ForceVector:
         else:
             raise RuntimeError(f"Cannot add force vector and {type(other)}")
 
+
+    def __sub__(self, other):
+        if type(other) is ForceVector:
+            return ForceVector(self.n - other.n, self.f - other.f)
+        else:
+            raise RuntimeError(f"Cannot subtract force vector and {type(other)}")
 
 class PluckerTransform:
     def __init__(self, E: np.ndarray, r: np.ndarray):
@@ -261,13 +285,15 @@ class PluckerTransform:
         elif type(other) is RigidBodyInertia:
             raise RuntimeError("Not yet implemented")
         elif type(other) is np.ndarray and other.shape == (3,):
-            # inv_x = self.inv()
-            inv_E = self.E.T
-            inv_r = -self.E @ self.r
-            return inv_E @ (other - inv_r)
+            inv_x = self.inv()
+            return inv_x.E @ (other - inv_x.r)
         else:
             raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
 
+
+    def as_array(self):
+        return np.block([[self.E, np.zeros((3, 3))], [-self.E @ crv(self.r), self.E]])
+    
 
     def __mul__(self, other):
         if type(other) is PluckerTransform:

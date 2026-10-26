@@ -20,12 +20,12 @@ class DoublePendulum(Model):
         m0 = math.pi * (rl ** 2) * l0 * rho
         m1 = math.pi * (rl ** 2) * l1 * rho
 
-        q = [math.pi / 4.0, 0.0]
+        q = [0.01, 0.0]
         parent = [None, 0]
         joint_types = ["Ry", "Ry"]
 
         joint_transforms = [
-            sv.PluckerTransform.xlt(sv.vec3(0., 0., 1.)),
+            sv.PluckerTransform.xlt(sv.vec3(0., 0., 0.5)),
             sv.PluckerTransform.xlt(sv.vec3(0., 0., l0)),
             # sv.PluckerTransform.xlt(sv.vec3(0., 0., l0)),
         ]

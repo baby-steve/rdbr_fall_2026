@@ -1,12 +1,15 @@
 import numpy as np
 
 from model_v2 import Model
+import alt_spatial_vector as sv
 
 import contact
+import datetime
 
 class Simulation:
     def __init__(self, model: Model):
         self.model = model
+        self.tau = np.zeros((self.model.nb, 1))
 
     def step(self, dt):
         """
@@ -20,11 +23,17 @@ class Simulation:
         # Get external forces. These are in joint space.
         # TODO: forces from controller (pass in as parameter)
         # TODO: what gets put in tau and what gets put in f_ext?
-        self.tau = np.zeros((self.model.nb, 1))
         f_ext = self.model.joint_forces()
 
         # t_gc = contact.ground_contact(self.model)
         # f_ext[7] = np.array([[0], [t_gc], [0], [0], [0], [0]])
+        p, pd = self.model.calculate_pos_vel()
+        fn = contact.ground_contact(p, pd)
+
+        for fn, i, pt in zip(fn, self.model.gc_body, p):
+            fp = np.array([0., 0., fn])
+            f = sv.ForceVector.from_linear(fp, pt)
+            f_ext[i] = f
 
         # Calculate joint space inertia matrix and the joint space
         # bias force.
@@ -40,6 +49,9 @@ class Simulation:
         # Integrate velocity to get position.
         # TODO: better integration algorithm.
         self.model.q += dt * self.model.qd
+
+        # HACK: use our torque chart to display impact forces
+        # self.tau[i] = fn
 
 
 def integrate(f, t1, t2):

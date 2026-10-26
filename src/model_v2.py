@@ -25,11 +25,15 @@ class Model:
         self._count = 0
 
         self.com = sv.vec3(0, 0, 0)
+        self.gc_body = np.array([0, 1])
+        # Locations of contact points expressed in local coordinates.
+        self.gc_point = np.array([sv.vec3(0., 0., 0.4), sv.vec3(0., 0., 0.5)])
 
     def joint_forces(self):
         return {}
 
     def gravity(self) -> sv.MotionVector:
+        # NOTE: yes, gravity should be positive. This is not a bug.
         return sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 9.81))
 
     def jcalc(self, jtype: str, q: float) -> tuple[sv.PluckerTransform, sv.MotionVector]:
@@ -182,16 +186,26 @@ class Model:
 
 
     def apply_external_forces(self, x_up, fvp, f_ext):
+        # NOTE: this applies all external forces to all joints.
+
         if f_ext is None:
             return fvp
 
-        xi_0 = {None: sv.PluckerTransform.xlt(sv.vec3(0., 0., 0.))}
         f_out = copy.deepcopy(fvp)
+        x = []
 
         for i in range(self.nb):
-            xi_0[i] = x_up[i] * xi_0[self.parent[i]]  # pyright: ignore[reportArgumentType]
+            if self.parent[i] == None:
+                x.append(x_up[i])
+            else:
+                x.append(x_up[i] * x[self.parent[i]])
+            
             if i in f_ext:
-                f_out[i] -= np.linalg.solve(xi_0[i].T, f_ext[i])  # pyright: ignore[reportArgumentType]
+                xa = x[i].as_array()
+                fa = f_ext[i].as_array()
+                fr = np.linalg.solve(xa.T, fa)
+                # print(f_ext[i].f)
+                f_out[i] -= sv.ForceVector(fr[0:3].reshape(3,), fr[3:6].reshape(3,))  # pyright: ignore[reportArgumentType]
 
         return f_out
 
@@ -242,6 +256,37 @@ class Model:
             "com": com,
             "com_lv": h / mass,
         }
+
+
+    def calculate_pos_vel(self):
+        xa = []
+        vb = []
+
+        # Calculate velocity and collect joint transforms.
+        for i in range(self.nb):
+            x_j, s = self.jcalc(self.joint_types[i], self.q[i])
+            xup = x_j * self.joint_transforms[i]
+            v_j = s * self.qd[i].item()
+            if self.parent[i] == None:
+                xa.append(xup)
+                vb.append(v_j)
+            else:
+                xa.append(xup * xa[self.parent[i]])
+                vb.append(xup.apply(vb[self.parent[i]]) + v_j)
+
+        pos = np.zeros((self.nb, 3))
+        vel = np.zeros((self.nb, 3))
+        
+        for i in self.gc_body:
+            iset = self.gc_body == i
+            v = xa[i].inv_apply(vb[i])
+
+            pt = xa[i].inv_apply(self.gc_point[iset, :].reshape(3,))
+            vpt = v.as_point(pt)
+            pos[iset, :] = pt
+            vel[iset, :] = vpt
+
+        return pos, vel
 
 
     def color(self, i):

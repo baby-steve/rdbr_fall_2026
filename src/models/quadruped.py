@@ -1,18 +1,21 @@
 import numpy as np
 import pyvista as pv
+import math
 
-import spatial_vector as sp
+import alt_spatial_vector as sv
 import utilities as utils
-from model import Model
+from model_v2 import Model
 
 
 class Quadruped(Model):
     def __init__(self, l0, l1, m0, m1):
         # Physical properties
-        l0 = 1  # length of first link
-        l1 = 1.5  # length of second link
-        rl = 0.1  # radius of link
-        gc = -2.0  # ground clearance
+        l0 = 0.4  # length of first link
+        l1 = 0.5  # length of second link
+        rl = 0.01  # radius of link
+        gc = 1.0  # ground clearance
+        offset_x = 0.4
+        offset_y = 0.2
 
         num_legs = 4
 
@@ -21,10 +24,10 @@ class Quadruped(Model):
             0, # np.pi / 2, # 1
             0, # -np.pi / 4, # 2
             0, # np.pi / 2, # 3
-            np.pi / 2, # 4
+            math.pi / 2, # 4
             0, # np.pi / 2, # 5
 
-            np.pi / 2, # 6
+            math.pi / 2, # 6
             0, # np.pi / 2, # 7
         ]
 
@@ -36,36 +39,32 @@ class Quadruped(Model):
         ]
         joint_types = ["Ry", "Ry"] * num_legs
         joint_transforms = [
-            sp.xlt([1.25, 1.0, gc]),
-            sp.xlt([0, 0, l0]),
-            sp.xlt([1.25, -1.0, gc]),
-            sp.xlt([0, 0, l0]),
-            sp.xlt([-1.25, 1.0, gc]),
-            sp.xlt([0, 0, l0]),
-            sp.xlt([-1.25, -1.0, gc]),
-            sp.xlt([0, 0, l0]),
+            sv.PluckerTransform.xlt(sv.vec3(offset_x, offset_y, gc)),
+            sv.PluckerTransform.xlt(sv.vec3(0, 0, l0)),
+            sv.PluckerTransform.xlt(sv.vec3(offset_x, -offset_y, gc)),
+            sv.PluckerTransform.xlt(sv.vec3(0, 0, l0)),
+            sv.PluckerTransform.xlt(sv.vec3(-offset_x, offset_y, gc)),
+            sv.PluckerTransform.xlt(sv.vec3(0, 0, l0)),
+            sv.PluckerTransform.xlt(sv.vec3(-offset_x, -offset_y, gc)),
+            sv.PluckerTransform.xlt(sv.vec3(0, 0, l0)),
         ]
 
         # Mass of each leg, in kgs
         m = [m0, m1]
 
-        rotational_inertia = [
-            utils.cylinder_inertia(m[0], rl, l0),
-            utils.cylinder_inertia(m[1], rl, l1),
-        ]
-
         body_transforms = [
-            sp.xlt([0, 0, l0 / 2]),
-            sp.xlt([0, 0, l1 / 2]),
+            sv.PluckerTransform.xlt(sv.vec3(0, 0, l0 / 2)),
+            sv.PluckerTransform.xlt(sv.vec3(0, 0, l1 / 2)),
         ] * num_legs
 
         # TODO: I have no idea if this is correct.
         com = [np.array([0, 0, l0 / 2]), np.array([0, 0, l1 / 2])]
 
         inertia = [
-            sp.mcI(m[0], com[0], rotational_inertia[0]),
-            sp.mcI(m[1], com[1], rotational_inertia[1]),
+            sv.RigidBodyInertia.cylinder(m[0], rl, l0, com[0]),
+            sv.RigidBodyInertia.cylinder(m[0], rl, l1, com[1]),
         ] * num_legs
+
 
         Model.__init__(
             self, q, parent, joint_types, joint_transforms, body_transforms, inertia
@@ -74,6 +73,19 @@ class Quadruped(Model):
         self.links = [l0, l1] * num_legs
         self.colors = ["blue", "green", "red", "purple"]
         self.rl = rl
+
+        self.gc_body = np.array([0, 1, 2, 3, 4, 5, 6, 7])
+        # Locations of contact points expressed in local coordinates.
+        self.gc_point = np.array([
+            sv.vec3(0., 0., 0.4),
+            sv.vec3(0., 0., 0.5), 
+            sv.vec3(0., 0., 0.4), 
+            sv.vec3(0., 0., 0.5), 
+            sv.vec3(0., 0., 0.4), 
+            sv.vec3(0., 0., 0.5),
+            sv.vec3(0., 0., 0.4),
+            sv.vec3(0., 0., 0.5), 
+        ])
 
     def joint_forces(self):
         f_ext = {}
@@ -98,10 +110,12 @@ class Quadruped(Model):
         return self.colors[idx]
 
     def appearance(self, i, x_up):
-        ZERO = [[0], [0], [0]]
-        x = x_up * self.body_transforms[i]
-        pos_j = sp.spatial_to_3d(x_up, ZERO)
-        pos_b = sp.spatial_to_3d(x, ZERO)
+        ZERO = sv.vec3(0., 0., 0.)
+        
+        x = self.body_transforms[i] * x_up
+        
+        pos_j = x_up.inv_apply(ZERO)
+        pos_b = x.inv_apply(ZERO)
         dir = pos_b - pos_j
         body = pv.Cylinder(
             center=pos_b, direction=dir, radius=self.rl, height=self.links[i]
