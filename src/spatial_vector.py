@@ -1,9 +1,15 @@
 import numpy as np
 
-# TODO: finish adding doc comments.
+
+def vec3(x: float, y: float, z: float) -> np.ndarray:
+    """
+    Helper function for creating (3,) numpy arrays.
+    """
+    return np.array([x, y, z])
+
 
 # Rotational coordinate transform about x-axis.
-def rx(theta):
+def rx(theta: float) -> np.ndarray:
     c = np.cos(theta)
     s = np.sin(theta)
 
@@ -11,7 +17,7 @@ def rx(theta):
 
 
 # Rotational coordinate transform about y-axis.
-def ry(theta):
+def ry(theta: float) -> np.ndarray:
     c = np.cos(theta)
     s = np.sin(theta)
 
@@ -19,7 +25,7 @@ def ry(theta):
 
 
 # Rotational coordinate transform about z-axis.
-def rz(theta):
+def rz(theta: float) -> np.ndarray:
     c = np.cos(theta)
     s = np.sin(theta)
 
@@ -27,164 +33,364 @@ def rz(theta):
 
 
 # vector cross-product operator.
-def crv(v):
-    return [[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]]
+def crv(v: np.ndarray) -> np.ndarray:
+    assert(v.shape == (3,))
+    return np.array([
+        [0, -v[2], v[1]],
+        [v[2], 0, -v[0]],
+        [-v[1], v[0], 0]
+    ])
 
 
-# motion cross-product operator.
-def crm(v):
-    #     A = crv([v[0][0], v[1][0], v[2][0]])
-    #     B = np.zeros((3, 3))
-    #     C = crv([v[3][0], v[4][0], v[5][0]])
-    #
-    #     return np.bmat([[A, B], [C, A]])
-    #     # print(v.shape, v)
-    return np.array(
-        [
-            [0, -v[2], v[1], 0, 0, 0],
-            [v[2], 0, -v[0], 0, 0, 0],
-            [-v[1], v[0], 0, 0, 0, 0],
-            [0, -v[5], v[4], 0, -v[2], v[1]],
-            [v[5], 0, -v[3], v[2], 0, -v[0]],
-            [-v[4], v[3], 0, -v[1], v[0], 0],
-        ]
-    )
-
-
-# force cross-product operator.
-def crf(v):
-    return -crm(v).T
-
-
-def rot(E):
-    zeros = np.zeros((3, 3))
-    return np.bmat([[E, zeros], [zeros, E]])
-
-
-# Spatial coordinate transform (rotation about x-axis)
-def rotx(theta):
-    return rot(rx(theta))
-
-
-# Spatial coordinate transform (rotation about y-axis)
-def roty(theta):
-    return rot(ry(theta))
-
-
-# Spatial coordinate transform (rotation about z-axis)
-def rotz(theta):
-    return rot(rz(theta))
-
-
-# Spatial coordinate transform (translation)
-def xlt(r):
-    x, y, z = r[:]
-
-    return np.array(
-        [
-            [1, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0, 0],
-            [0, z, -y, 1, 0, 0],
-            [-z, 0, x, 0, 1, 0],
-            [y, -x, 0, 0, 0, 1],
-        ]
-    )
-
-
-def mcI(m, c, I_c):
-    """
-    Compose rigid-body interia from mass, center of mass and rotational intertia
-    about the center of mass.
-
-    Parameters
-    ==========
-    m : float
-        Mass of rigid body.
-    c : array_like, shape(3, 1)
-        Center of mass.
-    I_c : array_like, shape(3, 3)
-        Rotational inertia.
-
-    Returns
-    =======
-    rbi : ndarray, shape(6, 6)
-        Rigid-body inertia.
-    """
-    assert c.shape == (3,)
-    assert I_c.shape == (3, 3)
-
-    C = skew(c)
-    return np.block(
-        [[I_c + m * C * np.transpose(C), m * C], [m * np.transpose(C), m * np.eye(3)]]
-    )
-
-
-# Compute a displacment vector from a coordinate transform.
-def x_to_v(x):
-    """
-    Compute a displacment vector from a coordinate transform.
-
-    Returns
-    =======
-    v : ndarray, shape(6, 1)
-        Spatial displacement vector
-    """
-    return 0.5 * np.array(
-        [
-            [x[1, 2] - x[2, 1]],
-            [x[2, 0] - x[0, 2]],
-            [x[0, 1] - x[1, 0]],
-            [x[4, 2] - x[5, 1]],
-            [x[5, 0] - x[3, 2]],
-            [x[3, 1] - x[4, 0]],
-        ]
-    )
-
-
-def skew(A):
+def skew(A: np.ndarray) -> np.ndarray:
     if A.shape == (3, 3):
         return 0.5 * np.array(
             [
-                [A[2, 1] - A[1, 2]],
-                [A[0, 2] - A[2, 0]],
-                [A[1, 0] - A[0, 1]],
+                A[2, 1] - A[1, 2],
+                A[0, 2] - A[2, 0],
+                A[1, 0] - A[0, 1],
             ]
         )
     else:
-        return np.array([[0, -A[2], A[1]], [A[2], 0, -A[0]], [-A[1], A[1], 0]])
+        return np.array([[0, -A[2], A[1]], [A[2], 0, -A[0]], [-A[1], A[0], 0]])
 
 
-def spatial_to_homogeneous(X):
-    E = X[0:3, 0:3]
-    mErx = X[3:6, 0:3]
-    return np.block(
-        [
-            [E, skew(mErx * np.transpose(E))],
-            [0, 0, 0, 1],
-        ]
-    )
+ZERO = vec3(0., 0., 0.)
 
 
-def spatial_to_3d(X, p):
+class MotionVector:
+    def __init__(self, w: np.ndarray, v: np.ndarray):
+        assert(w.shape == (3,))
+        assert(v.shape == (3,))
+
+        self.w = w
+        self.v = v
+
+
+    @classmethod
+    def default(cls):
+        return cls(vec3(0., 0., 0.), vec3(0., 0., 0.))
+
+
+    def dot(self, fv):
+        assert(type(fv) is ForceVector)
+
+        return self.w.dot(fv.n) + self.v.dot(fv.f)
+
+
+    def cross(self, other):
+        if type(other) is MotionVector:
+            return MotionVector(
+                np.cross(self.w, other.w),
+                np.cross(self.w, other.v) + np.cross(self.v, other.w),
+            )
+        elif type(other) is ForceVector:
+            return ForceVector(
+                np.cross(self.w, other.f) + np.cross(self.v, other.f),
+                np.cross(self.w, other.f)
+            )
+        else:
+            raise RuntimeError(f"Cross product between motion vector \
+                               and {type(other)} is not defined")
+
+
+    def as_point(self, p: np.ndarray) -> np.ndarray:
+        assert(p.shape == (3,))
+        # TODO: multiple points.
+        return self.v + np.cross(self.w, p)
+
+
+    def __mul__(self, other):
+        # Scalar multiplication
+        if type(other) is float:
+            return MotionVector(other * self.w, other * self.v)
+        else:
+            raise RuntimeError(f"Cannot multiple motion vector by {type(other)}")
+
+
+    def __add__(self, other):
+        if type(other) is MotionVector:
+            return MotionVector(self.w + other.w, self.v + other.v)
+        else:
+            raise RuntimeError(f"Cannot add motion vector and {type(other)}")
+
+
+class ForceVector:
+    def __init__(self, n: np.ndarray, f: np.ndarray):
+        assert(n.shape == (3,))
+        assert(f.shape == (3,))
+
+        self.n = n
+        self.f = f
+
+
+    @classmethod
+    def default(cls):
+        return cls(vec3(0., 0., 0.), vec3(0., 0., 0.))
+
+
+    @classmethod
+    def from_linear(cls, f, p):
+        """
+        Converts linear force f acting at point p into spatial force vector.
+        """
+        return cls(np.cross(p, f), f)
+
+
+    def as_array(self):
+        return np.block([self.n, self.f]).reshape((6, 1))
+
+
+    def __mul__(self, other):
+        # Scalar multiplication
+        if type(other) is float:
+            return ForceVector(other * self.n, other * self.f)
+        else:
+            raise RuntimeError(f"Cannot multiple force vector by {type(other)}")
+
+
+    def __add__(self, other):
+        if type(other) is ForceVector:
+            return ForceVector(self.n + other.n, self.f + other.f)
+        else:
+            raise RuntimeError(f"Cannot add force vector and {type(other)}")
+
+
+    def __sub__(self, other):
+        if type(other) is ForceVector:
+            return ForceVector(self.n - other.n, self.f - other.f)
+        else:
+            raise RuntimeError(f"Cannot subtract force vector and {type(other)}")
+
+class PluckerTransform:
+    def __init__(self, E: np.ndarray, r: np.ndarray):
+        assert(E.shape == (3, 3))
+        assert(r.shape == (3,))
+
+        self.E = E
+        self.r = r
+
+    @classmethod
+    def rotx(cls, theta: float):
+        """
+        Construct Plucker transform for rotation around the x-axis.
+
+        Parameters
+        ==========
+        theta : float
+            Angle to rotate by in radians.
+
+        Returns
+        =======
+        Plucker transform that transfroms a motion vector from frame A to B,
+        rotating `theta` radians about their shared x-axis.
+        """
+        return cls(rx(theta), np.zeros((3,)))
+
+
+    @classmethod
+    def roty(cls, theta: float):
+        """
+        Construct Plucker transform for rotation around the y-axis.
+
+        Parameters
+        ==========
+        theta : float
+            Angle to rotate by in radians.
+
+        Returns
+        =======
+        Plucker transform that transfroms a motion vector from frame A to B,
+        rotating `theta` radians about their shared y-axis.
+        """
+        return cls(ry(theta), np.zeros((3,)))
+
+
+    @classmethod
+    def rotz(cls, theta: float):
+        """
+        Construct Plucker transform for rotation around the z-axis.
+
+        Parameters
+        ==========
+        theta : float
+            Angle to rotate by in radians.
+
+        Returns
+        =======
+        Plucker transform that transfroms a motion vector from frame A to B,
+        rotating `theta` radians about their shared z-axis.
+        """
+        return cls(rz(theta), np.zeros((3,)))
+
+
+    @classmethod
+    def xlt(cls, r: np.ndarray):
+        """
+        Construct Plucker transform for translation of coordinate frame by `r`.
+
+        Parameters
+        ==========
+        r : np.ndarray, shape(3,)
+            3D vector specifing position of frame B relative to frame A.
+
+        Returns
+        =======
+        The Plucker transform
+        """
+        assert(r.shape == (3,))
+        return cls(np.eye(3, 3), r)
+
+
+    def inv(self):
+        return PluckerTransform(self.E.T, -self.E @ self.r)
+
+
+    def apply(self, other):
+        if type(other) is MotionVector:
+            return MotionVector(
+                self.E @ other.w,
+                self.E @ (other.v - np.cross(self.r, other.w))
+            )
+        elif type(other) is ForceVector:
+            # X*f
+            return ForceVector(
+                self.E @ (other.n - np.cross(self.r, other.f)),
+                self.E @ other.f
+            )
+        elif type(other) is RigidBodyInertia:
+            rxhx = crv(self.r) @ crv(other.h) # TODO: I think this is correct.
+
+            return RigidBodyInertia(
+                other.m,
+                self.E @ (other.h - other.m * self.r),
+                # TODO: I think the other crv terms are also correct
+                self.E @ (other.I + rxhx + (crv(other.h - other.m * self.r) @ crv(self.r))) @ self.E.T,
+            )
+        elif type(other) is np.ndarray and other.shape == (3,):
+            return self.E @ (other - self.r)
+        else:
+            raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
+
+
+    def inv_apply(self, other):
+        if type(other) is MotionVector:
+            return MotionVector(
+                self.E.T @ other.w,
+                self.E.T @ other.v + np.cross(self.r, self.E.T @ other.w)
+            )
+        elif type(other) is ForceVector:
+            # X.T*f
+            return ForceVector(
+                self.E.T @ other.n + np.cross(self.r, self.E.T @ other.f),
+                self.E.T @ other.f
+            )
+        elif type(other) is RigidBodyInertia:
+            raise RuntimeError("Not yet implemented")
+        elif type(other) is np.ndarray and other.shape == (3,):
+            inv_x = self.inv()
+            return inv_x.E @ (other - inv_x.r)
+        else:
+            raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
+
+
+    def as_array(self):
+        return np.block([[self.E, np.zeros((3, 3))], [-self.E @ crv(self.r), self.E]])
+    
+
+    def __mul__(self, other):
+        if type(other) is PluckerTransform:
+            return PluckerTransform(self.E @ other.E, other.r + other.E.T @ self.r)
+        else:
+            raise RuntimeError(f"Cannot multiple plucker transform by {type(other)}")
+
+
+    def __repr__(self) -> str:
+        return f"PluckerTransfrom(\n{self.E},\n{self.r}\n)"
+
+
+class RigidBodyInertia:
     """
-    Apply a spatial coordinate transform to a 3d point.
+    Spatial inertia tensor. It defines a mapping between a rigid body's
+    velocity and momentum, and also between M^6 and F^6. Specifically:
+        h = Iv
+    where h is momentum, I is the spatial inertia and v is the spatial velocity.
+    See section 2.13 of Featherstone for details.
+    """
+    def __init__(self, m: float, com: np.ndarray, I: np.ndarray):
+        assert(com.shape == (3,))
+        assert(I.shape == (3, 3))
+
+        I = I + m * crv(com) @ crv(com).T
+        assert(I.shape == (3, 3))
+        h = m * com
+
+        self.m = m
+        self.h = h
+        self.I = I
+
+
+    @classmethod
+    def cylinder(cls, m, r, l, c):
+        a = (1/12) * m * (3 * r**2 + l**2)
+        b = (1/2) * m * (r**2)
+        inertia_tensor = np.array([[a, 0., 0.], [0., a, 0.], [0., 0., b]])
+        return cls(m, c, inertia_tensor)
+
+
+    @classmethod
+    def default(cls):
+        I = np.zeros((3, 3))
+        return cls(0, vec3(0., 0., 0.), I)
+
+
+    def mass(self) -> float:
+        return self.m
+
+
+    def com(self) -> np.ndarray:
+        return self.h / self.m
+
+
+    def rotational_inertia(self) -> np.ndarray:
+        mC = skew(self.h)
+        assert(mC.shape == (3, 3))
+        return self.I - (mC @ mC.T / self.m)
+
+
+    def __mul__(self, other):
+        # Scalar multiplication.
+        if type(other) is float:
+            return RigidBodyInertia(other * self.m, other * self.h, other * self.I)
+        # Multiple by a motion vector.
+        elif type(other) is MotionVector:
+            return ForceVector(
+                self.I @ other.w + np.cross(self.h, other.v),
+                self.m * other.v - np.cross(self.h, other.w),
+            )
+        else:
+            raise RuntimeError(f"Cannot multiple inertia by {type(other)}")
+
+
+    def __add__(self, other):
+        if type(other) is RigidBodyInertia:
+            return RigidBodyInertia(self.m + other.m, self.h + other.h, self.I + other.I)
+        else:
+            raise RuntimeError(f"Cannot add force vector and {type(other)}")
+
+# motion cross-product operator.
+def crm(mv: MotionVector) -> np.ndarray:
+    """
+    Spatial cross product operator.
 
     Parameters
     ==========
-    X : ndarray, shape(6, 6)
-        Spatial coordinate transform to apply to point.
-    p : array-like, shape(3, 1)
-        3d point to transform.
-
-    Returns
-    =======
-    out : ndarray, shape(3,)
-        Transformed point
+    v : np.ndarray
+    Motion vector representing spatial velocity.
     """
-    assert X.shape == (6, 6)
-
-    E = X[0:3, 0:3]
-    r = -skew(np.transpose(E) * X[3:6, 0:3])
-
-    return (E * (p - r)).reshape((3,))
+    w = mv.w # "first three plucker coordinates"
+    v = mv.v # "second three plucker coordinates"
+    a = crv(w)
+    b = crv(v)
+    zeros = np.zeros((3, 3))
+    return np.block([[a, zeros], [b, a]])
