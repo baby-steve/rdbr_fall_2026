@@ -1,9 +1,8 @@
 import copy
 
 import numpy as np
-import pyvista as pv
 
-import alt_spatial_vector as sv
+import spatial_vector as sv
 
 GRAVITY = sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 9.81))
 
@@ -13,7 +12,7 @@ class Model:
     ):
         self.nb = len(joint_types)
         self.q = np.array(q)
-        self.qd = np.empty(len(q))
+        self.qd = np.zeros(len(q))
 
         self.parent = parent
 
@@ -30,18 +29,20 @@ class Model:
         # Locations of contact points expressed in local coordinates.
         self.gc_point = np.array([sv.vec3(0., 0., 0.4), sv.vec3(0., 0., 0.5)])
 
+        self.appearance = {}
+
         # Cache arrays used in various algorithms. The content in these should be
-        # overwritten in any routine that might use them. 
+        # overwritten in any routine that might use them.
         # Joint transforms of each joint from base.
-        self.xup: list[sv.PluckerTransform] = [None] * self.nb  
+        self.xup: list[sv.PluckerTransform] = [None] * self.nb
         # Spatial velocity of each joint.
-        self.v: list[sv.MotionVector] = [None] * self.nb  
+        self.v: list[sv.MotionVector] = [None] * self.nb
         # Spatial Acceleration of each joint.
-        self.avp: list[sv.MotionVector] = [None] * self.nb  
+        self.avp: list[sv.MotionVector] = [None] * self.nb
         # Spatial forces of each joint.
-        self.fvp: list[sv.ForceVector] = [None] * self.nb  
+        self.fvp: list[sv.ForceVector] = [None] * self.nb
         # Motion subspace of each joint.
-        self.s: list[sv.MotionVector] = [None] * self.nb  
+        self.s: list[sv.MotionVector] = [None] * self.nb
 
 
     def joint_forces(self):
@@ -86,6 +87,24 @@ class Model:
             return (
                 sv.PluckerTransform.rotz(q),
                 sv.MotionVector(sv.vec3(0., 0., 1.), sv.vec3(0., 0., 0.))
+            )
+        elif jtype == "Px":
+            # Planar x-axis
+            return (
+                sv.PluckerTransform.xlt(sv.vec3(q, 0., 0.)),
+                sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(1., 0., 0.))
+            )
+        elif jtype == "Py":
+            # Planar y-axis
+            return (
+                sv.PluckerTransform.xlt(sv.vec3(0., q, 0.)),
+                sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 1., 0.))
+            )
+        elif jtype == "Pz":
+            # Planar z-axis
+            return (
+                sv.PluckerTransform.xlt(sv.vec3(0., 0., q)),
+                sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 1.))
             )
         else:
             raise RuntimeError("Unexpected joint type: " + jtype)
@@ -167,7 +186,7 @@ class Model:
     def calculate_global_transform(self) -> list[sv.PluckerTransform]:
         """
         Calculate the Plucker transform of each body that transforms some point
-        from the body's frame to the base coordinate system (see section 4.2 of 
+        from the body's frame to the base coordinate system (see section 4.2 of
         Featherstone's "Rigid Body Dynamics Algorithms").
         """
         global_transform = []
@@ -179,7 +198,7 @@ class Model:
 
             if self.parent[i] != None:
                 x = x * global_transform[self.parent[i]]
-                
+
             global_transform.append(x)
 
         return global_transform
@@ -199,7 +218,7 @@ class Model:
                 x.append(x_up[i])
             else:
                 x.append(x_up[i] * x[self.parent[i]])
-            
+
             if i in f_ext:
                 xa = x[i].as_array()
                 fa = f_ext[i].as_array()
@@ -215,7 +234,7 @@ class Model:
         hc = []
         KE = []
         Ic = copy.deepcopy(self.inertia)
-        
+
         for i in range(self.nb):
             x_j, s = self.jcalc(self.joint_types[i], self.q[i])
             v_j = s * self.qd[i].item()
@@ -276,7 +295,7 @@ class Model:
 
         pos = np.zeros((self.nb, 3))
         vel = np.zeros((self.nb, 3))
-        
+
         for i in self.gc_body:
             iset = self.gc_body == i
             v = xa[i].inv_apply(vb[i])

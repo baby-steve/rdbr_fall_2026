@@ -1,9 +1,9 @@
 import argparse
 import sys
 
-from models.double_pendulum_v2 import DoublePendulum
-from models.quadruped import Quadruped
+from models.double_pendulum import DoublePendulum
 from models.lever import Lever
+from models.quadruped import Quadruped
 from models.slider import Slider
 from session import PlaybackSession, RunSession
 

@@ -1,10 +1,9 @@
 import numpy as np
 
-from model_v2 import Model
-import alt_spatial_vector as sv
-
 import contact
-import datetime
+import spatial_vector as sv
+from model import Model
+
 
 class Simulation:
     def __init__(self, model: Model):
@@ -28,9 +27,9 @@ class Simulation:
         # t_gc = contact.ground_contact(self.model)
         # f_ext[7] = np.array([[0], [t_gc], [0], [0], [0], [0]])
         p, pd = self.model.calculate_pos_vel()
-        fn = contact.ground_contact(p, pd)
+        fns = contact.ground_contact(p, pd)
 
-        for fn, i, pt in zip(fn, self.model.gc_body, p):
+        for fn, i, pt in zip(fns, self.model.gc_body, p):
             fp = np.array([0., 0., fn])
             f = sv.ForceVector.from_linear(fp, pt)
             f_ext[i] = f

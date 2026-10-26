@@ -1,19 +1,11 @@
 import numpy as np
 import pyvista as pv
 
-import alt_spatial_vector as sv
-from model_v2 import Model
+import spatial_vector as sv
+from model import Model
 
-COLORS = [
-    "red",
-    "blue",
-    "green",
-    "yellow",
-    "pink",
-    "purple",
-    "magenta",
-    "orange"
-]
+COLORS = ["red", "blue", "green", "yellow", "pink", "purple", "magenta", "orange"]
+
 
 class GraphicsManager:
     model: Model
@@ -63,7 +55,11 @@ class GraphicsManager:
             self.plotter, ("time", "tau"), (2, 0), model, model.nb
         )
         self.energy = SimDataChart(
-            self.plotter, ("time (s)", "energy (J)"), (3, 0), model, 3,
+            self.plotter,
+            ("time (s)", "energy (J)"),
+            (3, 0),
+            model,
+            3,
         )
 
     def update(self, data):
@@ -73,7 +69,7 @@ class GraphicsManager:
         # Update the range of data displayed in the charts.
         # last_timestep = data.time[-1]  # The last simulated timestep, in seconds.
         # new_start = max(last_timestep - 5, 0) # timestamp 5 seconds ago
-        start = 0 # TODO: fix this
+        start = 0  # TODO: fix this
         time_bounds = (data.time[start], data.time[-1])
 
         # Update the charts.
@@ -162,8 +158,7 @@ class SimDataChart:
         self.chart.y_range = self.bounds
 
 
-class DrawInstruction:
-    ...
+class DrawInstruction: ...
 
 
 class DrawColor(DrawInstruction):
@@ -173,7 +168,7 @@ class DrawColor(DrawInstruction):
 
 
 class DrawCylinder(DrawInstruction):
-    def __init__(self, p1: np.array, p2: np.array, radius: float):
+    def __init__(self, p1: np.ndarray, p2: np.ndarray, radius: float):
         super().__init__()
         self.radius = radius
         self.height = np.linalg.norm(np.abs(p1 - p2))
@@ -184,24 +179,23 @@ class DrawCylinder(DrawInstruction):
         x_center_global = self.x_center * xup
         joint_pos = xup.inv_apply(sv.ZERO)
         center_pos = x_center_global.inv_apply(sv.ZERO)
-        direction = joint_pos - center_pos
+        direction = joint_pos - center_pos  # pyright: ignore[reportOperatorIssue]
 
-        if not direction.any():
+        if not direction.any():  # pyright: ignore[reportAttributeAccessIssue]
             # joint position cooresponds with center position.
             # Use cached direction.
             direction = self.initial_direction
 
         return pv.Cylinder(
-            center=center_pos,
-            direction=direction,
+            center=center_pos,  # pyright: ignore[reportArgumentType]
+            direction=direction,  # pyright: ignore[reportArgumentType]
             radius=self.radius,
-            height=self.height
+            height=self.height,
         )
 
 
 class DrawBox(DrawInstruction):
-    def __init__(self, p1: np.array, p2: np.array):
+    def __init__(self, p1: np.ndarray, p2: np.ndarray):
         super().__init__()
         self.p1 = p1
         self.p2 = p2
-
