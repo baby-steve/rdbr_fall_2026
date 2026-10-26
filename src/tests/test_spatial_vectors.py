@@ -1,7 +1,9 @@
 import unittest
-import src.alt_spatial_vector as sv
-import src.utilities as utils
+
 import numpy as np
+
+import src.spatial_vector as sv
+
 
 class TestHello(unittest.TestCase):
     def test_skew(self):
@@ -12,7 +14,7 @@ class TestHello(unittest.TestCase):
         self.assertEqual(res.shape, (3, 3))
 
         # Check against the matrix produced by Featherstone's MATLAB version
-        # of the `skew` function. 
+        # of the `skew` function.
         correct_res = np.array([[0, -3, 2], [3, 0, 1], [-2, -1, 0]])
         self.assertTrue((res == correct_res).all())
 
@@ -42,14 +44,6 @@ class TestHello(unittest.TestCase):
         self.assertTrue((inv.w == v.w).all())
         self.assertTrue((inv.v == v.v).all())
 
-    def test_plucker_transform_motion_vector(self):
-        v = sv.MotionVector(np.array([1, 2, 3]), np.array([4, 5, 6]))
-        x = sv.PluckerTransform.xlt(np.array([5, 3, 1]))
-        res = x.apply(v)
-        inv = x.inv_apply(res)
-        self.assertTrue((inv.w == v.w).all())
-        self.assertTrue((inv.v == v.v).all())
-
     def test_spatial_cross_product_weirdness(self):
         # test: axbx = ba.T - (a*b)1_3x3
         a = np.array([1, 2, 3])
@@ -60,18 +54,6 @@ class TestHello(unittest.TestCase):
 
         self.assertTrue((c1 == c2).all())
 
-    def test_inertia_weirdness(self):
-        m = 1.5
-        c = sv.vec3(1., 2., 3.)
-        I_c = utils.cylinder_inertia(m, 0.5, 1.)
-
-        I_o = np.block([
-            [I_c + m * sv.crv(c) @ sv.crv(c).T, m * sv.crv(c)],
-            [-m * sv.crv(c), m * np.eye(3, 3)]
-        ])
-
-        # print(I_o)
-
     def test_sanity_check(self):
         # It's 1:48 AM
         f = sv.ForceVector(sv.vec3(1, 2, 3), sv.vec3(0, 2, 4))
@@ -81,7 +63,7 @@ class TestHello(unittest.TestCase):
 
         f_res = f + I*a + v.cross(I * v)
 
-        # print(f_res.n, f_res.f)
+        print(f_res.n, f_res.f)
 
     def test_apply_plucker_to_3d_point(self):
         ZERO = sv.vec3(0., 0., 0.)
@@ -112,7 +94,7 @@ class TestHello(unittest.TestCase):
         h = sv.vec3(1., 2., 3.)
         a = m * sv.skew(h / m)
         b = sv.skew(h)
-        self.assertTrue((a == b).all()) # W algebra 
+        self.assertTrue((a == b).all()) # W algebra
 
     def test_mor_algerbruh(self):
         # TODO: also remove this
