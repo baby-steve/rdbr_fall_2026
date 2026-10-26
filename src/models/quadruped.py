@@ -5,14 +5,14 @@ import math
 import alt_spatial_vector as sv
 import utilities as utils
 from model_v2 import Model
-
+import graphics
 
 class Quadruped(Model):
     def __init__(self, l0, l1, m0, m1):
         # Physical properties
         l0 = 0.4  # length of first link
         l1 = 0.5  # length of second link
-        rl = 0.01  # radius of link
+        rl = 0.025  # radius of link
         gc = 1.0  # ground clearance
         offset_x = 0.4
         offset_y = 0.2
@@ -87,6 +87,37 @@ class Quadruped(Model):
             sv.vec3(0., 0., 0.5), 
         ])
 
+        self.appearance = { }
+        for i in range(0, 8, 2):
+            # Upper leg
+            self.appearance[i] = [
+                graphics.DrawColor(self.colors[i // 2]),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0.05, 0.),
+                    p2=sv.vec3(0., -0.05, 0.),
+                    radius=0.05,
+                ),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0., 0.),
+                    p2=sv.vec3(0., 0., l0),
+                    radius=rl
+                )
+            ]
+            # Lower leg
+            self.appearance[i + 1] = [
+                graphics.DrawColor(self.colors[i // 2]),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0.05, 0.),
+                    p2=sv.vec3(0., -0.05, 0.),
+                    radius=0.05,
+                ),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0., 0.),
+                    p2=sv.vec3(0., 0., l1),
+                    radius=rl
+                )
+            ]
+
     def joint_forces(self):
         f_ext = {}
 
@@ -104,20 +135,3 @@ class Quadruped(Model):
 
         return f_ext
 
-
-    def color(self, i):
-        idx = (i) // 2
-        return self.colors[idx]
-
-    def appearance(self, i, x_up):
-        ZERO = sv.vec3(0., 0., 0.)
-        
-        x = self.body_transforms[i] * x_up
-        
-        pos_j = x_up.inv_apply(ZERO)
-        pos_b = x.inv_apply(ZERO)
-        dir = pos_b - pos_j
-        body = pv.Cylinder(
-            center=pos_b, direction=dir, radius=self.rl, height=self.links[i]
-        )
-        return body

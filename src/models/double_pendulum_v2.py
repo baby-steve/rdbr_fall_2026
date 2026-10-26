@@ -5,6 +5,7 @@ import pyvista as pv
 
 import alt_spatial_vector as sv
 from model_v2 import Model
+import graphics
 
 
 class DoublePendulum(Model):
@@ -48,7 +49,7 @@ class DoublePendulum(Model):
 
         inertia = [
             sv.RigidBodyInertia.cylinder(m[0], rl, l0, com[0]),
-            sv.RigidBodyInertia.cylinder(m[0], rl, l1, com[1]),
+            sv.RigidBodyInertia.cylinder(m[1], rl, l1, com[1]),
             # sv.RigidBodyInertia.cylinder(m[0], rl, l1, com[1]),
         ]
 
@@ -60,21 +61,39 @@ class DoublePendulum(Model):
         self.colors = ["blue", "green", "yellow"]
         self.rl = rl
 
+        self.gc_body = np.array([0, 1])
+        # Locations of contact points expressed in local coordinates.
+        self.gc_point = np.array([sv.vec3(0., 0., 0.4), sv.vec3(0., 0., 0.5)])
+
+        self.appearance = {
+            1: [
+                graphics.DrawColor("blue"),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0.05, 0.),
+                    p2=sv.vec3(0., -0.05, 0.),
+                    radius=0.05,
+                ),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0., 0.),
+                    p2=sv.vec3(0., 0., l0),
+                    radius=rl
+                )
+            ],
+            2: [
+                graphics.DrawColor("green"),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0.05, 0.),
+                    p2=sv.vec3(0., -0.05, 0.),
+                    radius=0.05,
+                ),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0., 0.),
+                    p2=sv.vec3(0., 0., l1),
+                    radius=rl
+                )
+            ],
+        }
+
     def joint_forces(self):
         return {}
 
-    def color(self, i):
-        return self.colors[i]
-
-    def appearance(self, i, x_up, print=False):
-        ZERO = sv.vec3(0., 0., 0.)
-
-        x = self.body_transforms[i] * x_up
-
-        pos_j = x_up.inv_apply(ZERO)
-        pos_b = x.inv_apply(ZERO)
-        dir = pos_b - pos_j
-        body = pv.Cylinder(
-            center=pos_b, direction=dir, radius=self.rl, height=self.links[i]
-        )
-        return body

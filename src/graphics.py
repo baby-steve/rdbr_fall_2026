@@ -4,6 +4,16 @@ import pyvista as pv
 import alt_spatial_vector as sv
 from model_v2 import Model
 
+COLORS = [
+    "red",
+    "blue",
+    "green",
+    "yellow",
+    "pink",
+    "purple",
+    "magenta",
+    "orange"
+]
 
 class GraphicsManager:
     model: Model
@@ -76,9 +86,6 @@ class GraphicsManager:
         self.plotter.update()
 
     def update_render_model(self):
-        ZERO = sv.vec3(0., 0., 0.)
-        r_j = 0.05  # radius of joint (for rendering purposes)
-
         self.plotter.subplot(0, 1)
 
         com = pv.Sphere(center=self.model.com, radius=0.1)
@@ -98,20 +105,18 @@ class GraphicsManager:
 
         xs = self.model.calculate_global_transform()
 
-        for i in range(self.model.nb):
-            pos_j = xs[i].inv_apply(ZERO)
+        # Set mesh color to some default value.
+        color = "blue"
+        for i, insts in enumerate(self.model.appearance.values()):
+            for j, inst in enumerate(insts):
+                if type(inst) is DrawColor:
+                    # Update the draw color.
+                    color = inst.color
+                    continue
 
-            joint = pv.Cylinder(center=pos_j, radius=r_j, height=0.1, direction=(0, 1, 0))
-            
-            body = self.model.appearance(i, xs[i])
-            
-            color = self.model.color(i)
-
-            joint_name = "joint" + str(i + 1)
-            body_name = "body" + str(i + 1)
-
-            self.plotter.add_mesh(joint, color=color, name=joint_name, render=False)
-            self.plotter.add_mesh(body, color=color, name=body_name, render=False)
+                body = inst.appearance(xs[i])
+                body_name = "body" + str(i + 1) + str(j + 1)
+                self.plotter.add_mesh(body, color=color, name=body_name, render=False)
 
 
 class SimDataChart:
@@ -130,7 +135,7 @@ class SimDataChart:
         self.bounds = (-2, 2)
 
         for i in range(self.entries):
-            line = self.chart.line([0], [0], model.color(i))
+            line = self.chart.line([0], [0], COLORS[i])
             self.lines.append(line)
 
         self.chart.y_range = self.bounds
@@ -155,3 +160,48 @@ class SimDataChart:
         # Update bounds of chart.
         self.chart.x_range = time_bounds
         self.chart.y_range = self.bounds
+
+
+class DrawInstruction:
+    ...
+
+
+class DrawColor(DrawInstruction):
+    def __init__(self, color):
+        super().__init__()
+        self.color = color
+
+
+class DrawCylinder(DrawInstruction):
+    def __init__(self, p1: np.array, p2: np.array, radius: float):
+        super().__init__()
+        self.radius = radius
+        self.height = np.linalg.norm(np.abs(p1 - p2))
+        self.x_center = sv.PluckerTransform.xlt(0.5 * (p1 + p2))
+        self.initial_direction = p1 - p2
+
+    def appearance(self, xup: sv.PluckerTransform):
+        x_center_global = self.x_center * xup
+        joint_pos = xup.inv_apply(sv.ZERO)
+        center_pos = x_center_global.inv_apply(sv.ZERO)
+        direction = joint_pos - center_pos
+
+        if not direction.any():
+            # joint position cooresponds with center position.
+            # Use cached direction.
+            direction = self.initial_direction
+
+        return pv.Cylinder(
+            center=center_pos,
+            direction=direction,
+            radius=self.radius,
+            height=self.height
+        )
+
+
+class DrawBox(DrawInstruction):
+    def __init__(self, p1: np.array, p2: np.array):
+        super().__init__()
+        self.p1 = p1
+        self.p2 = p2
+

@@ -42,12 +42,11 @@ class Model:
         self.fvp: list[sv.ForceVector] = [None] * self.nb  
         # Motion subspace of each joint.
         self.s: list[sv.MotionVector] = [None] * self.nb  
-        # Bias force at each joint.
-        self.C = np.zeros([self.nb, 1]) 
 
 
     def joint_forces(self):
         return {}
+
 
     def jcalc(self, jtype: str, q: float) -> tuple[sv.PluckerTransform, sv.MotionVector]:
         """
@@ -124,10 +123,10 @@ class Model:
 
         self.fvp = self.apply_external_forces(self.xup, self.fvp, f_ext)
 
-        # C = np.zeros([self.nb, 1])
+        C = np.zeros([self.nb, 1])
 
         for i in reversed(range(self.nb)):
-            self.C[i] = self.s[i].dot(self.fvp[i])
+            C[i] = self.s[i].dot(self.fvp[i])
             if self.parent[i] != None:
                 self.fvp[self.parent[i]] += self.xup[i].apply(self.fvp[i])
 
@@ -154,7 +153,7 @@ class Model:
         self._print = False
         self._count += 1
 
-        return H, self.C
+        return H, C
 
     def print(self, msg):
         if self._count >= 10:
@@ -192,7 +191,7 @@ class Model:
         if f_ext is None:
             return fvp
 
-        # f_out = copy.deepcopy(fvp)
+        f_out = copy.deepcopy(fvp)
         x = []
 
         for i in range(self.nb):
@@ -206,9 +205,9 @@ class Model:
                 fa = f_ext[i].as_array()
                 fr = np.linalg.solve(xa.T, fa)
                 # print(f_ext[i].f)
-                fvp[i] -= sv.ForceVector(fr[0:3].reshape(3,), fr[3:6].reshape(3,))  # pyright: ignore[reportArgumentType]
+                f_out[i] -= sv.ForceVector(fr[0:3].reshape(3,), fr[3:6].reshape(3,))  # pyright: ignore[reportArgumentType]
 
-        return fvp
+        return f_out
 
     def calculate_energy_momentum(self):
         xup = []
@@ -260,8 +259,8 @@ class Model:
 
 
     def calculate_pos_vel(self):
-        xa = self.xup
-        vb = self.v
+        xa = [None] * self.nb # self.xup
+        vb = [None] * self.nb # self.v
 
         # Calculate velocity and collect joint transforms.
         for i in range(self.nb):
@@ -288,17 +287,3 @@ class Model:
             vel[iset, :] = vpt
 
         return pos, vel
-
-
-    def color(self, i):
-        return "blue"
-
-    def appearance(self, i, x_up):
-        """
-        Return the geometry of the ith body of this model.
-        """
-        ZERO = [[0], [0], [0]]
-        x = x_up * self.body_transforms[i]
-        pos_b = x.apply(ZERO)
-        body = pv.Sphere(center=pos_b, radius=0.1)
-        return body

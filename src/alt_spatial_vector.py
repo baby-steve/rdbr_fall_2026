@@ -55,6 +55,9 @@ def skew(A: np.ndarray) -> np.ndarray:
         return np.array([[0, -A[2], A[1]], [A[2], 0, -A[0]], [-A[1], A[0], 0]])
 
 
+ZERO = vec3(0., 0., 0.)
+
+
 class MotionVector:
     def __init__(self, w: np.ndarray, v: np.ndarray):
         assert(w.shape == (3,))
