@@ -32,7 +32,7 @@ class Session:
 
 
 class RunSession(Session):
-    def __init__(self, model, record):
+    def __init__(self, model, record, timestep):
         self.model = model
         self.sim = Simulation(model)
 
@@ -40,7 +40,7 @@ class RunSession(Session):
 
         # Timestep/render loop stuff:
         self.elapsed = 0
-        self.dt = 0.01 # 0.005
+        self.dt = timestep # 0.005
 
         self.now = datetime.now().timestamp()
         self.acc = 0.0

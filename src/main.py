@@ -12,6 +12,7 @@ subparsers = parser.add_subparsers(dest="subparser_name")
 run_parser = subparsers.add_parser("run", help="simulate the given model")
 run_parser.add_argument("model", help="model to simulate")
 run_parser.add_argument("--record", help="file to record simulation data to")
+run_parser.add_argument("--timestep", help="set simulation timestep")
 
 playback_parser = subparsers.add_parser("playback", help="playback recorded simulation")
 playback_parser.add_argument("file", help="file to load playback from")
@@ -30,7 +31,12 @@ if args.subparser_name == "run":
     else:
         raise RuntimeError("Invalid model name: " + str(model_name))
 
-    session = RunSession(model, args.record)
+    if args.timestep:
+        timestep = float(args.timestep)
+    else:
+        timestep = 0.005
+
+    session = RunSession(model, args.record, timestep)
 elif args.subparser_name == "playback":
     print("Playback")
     file = args.file
