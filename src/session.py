@@ -40,7 +40,7 @@ class RunSession(Session):
 
         # Timestep/render loop stuff:
         self.elapsed = 0
-        self.dt = 0.005
+        self.dt = 0.01 # 0.005
 
         self.now = datetime.now().timestamp()
         self.acc = 0.0

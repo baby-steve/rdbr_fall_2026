@@ -5,6 +5,7 @@ import pyvista as pv
 
 import alt_spatial_vector as sv
 
+GRAVITY = sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 9.81))
 
 class Model:
     def __init__(
@@ -29,12 +30,24 @@ class Model:
         # Locations of contact points expressed in local coordinates.
         self.gc_point = np.array([sv.vec3(0., 0., 0.4), sv.vec3(0., 0., 0.5)])
 
+        # Cache arrays used in various algorithms. The content in these should be
+        # overwritten in any routine that might use them. 
+        # Joint transforms of each joint from base.
+        self.xup: list[sv.PluckerTransform] = [None] * self.nb  
+        # Spatial velocity of each joint.
+        self.v: list[sv.MotionVector] = [None] * self.nb  
+        # Spatial Acceleration of each joint.
+        self.avp: list[sv.MotionVector] = [None] * self.nb  
+        # Spatial forces of each joint.
+        self.fvp: list[sv.ForceVector] = [None] * self.nb  
+        # Motion subspace of each joint.
+        self.s: list[sv.MotionVector] = [None] * self.nb  
+        # Bias force at each joint.
+        self.C = np.zeros([self.nb, 1]) 
+
+
     def joint_forces(self):
         return {}
-
-    def gravity(self) -> sv.MotionVector:
-        # NOTE: yes, gravity should be positive. This is not a bug.
-        return sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 9.81))
 
     def jcalc(self, jtype: str, q: float) -> tuple[sv.PluckerTransform, sv.MotionVector]:
         """
@@ -95,40 +108,28 @@ class Model:
         Returns the coefficients H and C.
         """
 
-        # Gravity expressed as a spatial vector.
-        # a_grav = get_gravity(model);
-        a_gravity = self.gravity()
-
-        xup: list[sv.PluckerTransform] = [None] * self.nb  # Joint transforms of each joint from base
-        v: list[sv.MotionVector] = [None] * self.nb  # Spatial velocity of each joint
-        avp: list[sv.MotionVector] = [None] * self.nb  # Spatial Acceleration of each joint
-        fvp: list[sv.ForceVector] = [None] * self.nb  # Spatial forces of each joint
-        s: list[sv.MotionVector] = [None] * self.nb  # Motion subspace of each joint
-
-        # self.print("\n === frame count: " + str(self._count) + " ===\n")
-
         for i in range(self.nb):
-            x_j, s[i] = self.jcalc(self.joint_types[i], self.q[i])
-            v_j = s[i] * self.qd[i].item() # `.item()` converts np float to python float
-            xup[i] = x_j * self.joint_transforms[i]
+            x_j, self.s[i] = self.jcalc(self.joint_types[i], self.q[i])
+            v_j = self.s[i] * self.qd[i].item() # `.item()` converts np float to python float
+            self.xup[i] = x_j * self.joint_transforms[i]
 
             if self.parent[i] == None:
-                v[i] = v_j
-                avp[i] = xup[i].apply(a_gravity) # Can't switch order
+                self.v[i] = v_j
+                self.avp[i] = self.xup[i].apply(GRAVITY) # Can't switch order
             else:
-                v[i] = xup[i].apply(v[self.parent[i]]) + v_j
-                avp[i] = xup[i].apply(avp[self.parent[i]]) + v[i].cross(v_j)
+                self.v[i] = self.xup[i].apply(self.v[self.parent[i]]) + v_j
+                self.avp[i] = self.xup[i].apply(self.avp[self.parent[i]]) + self.v[i].cross(v_j)
 
-            fvp[i] = self.inertia[i] * avp[i] + v[i].cross(self.inertia[i] * v[i])
+            self.fvp[i] = self.inertia[i] * self.avp[i] + self.v[i].cross(self.inertia[i] * self.v[i])
 
-        fvp = self.apply_external_forces(xup, fvp, f_ext)
+        self.fvp = self.apply_external_forces(self.xup, self.fvp, f_ext)
 
-        C = np.zeros([self.nb, 1])
+        # C = np.zeros([self.nb, 1])
 
         for i in reversed(range(self.nb)):
-            C[i] = s[i].dot(fvp[i])
+            self.C[i] = self.s[i].dot(self.fvp[i])
             if self.parent[i] != None:
-                fvp[self.parent[i]] += xup[i].apply(fvp[i])
+                self.fvp[self.parent[i]] += self.xup[i].apply(self.fvp[i])
 
         # Composite inertia calculation
         # Clone our array of inertias so that we don't mutate the data
@@ -136,24 +137,24 @@ class Model:
         ic = copy.deepcopy(self.inertia)
         for i in reversed(range(self.nb)):
             if self.parent[i] != None:
-                ic[self.parent[i]] += xup[i].apply(ic[i])
+                ic[self.parent[i]] += self.xup[i].apply(ic[i])
 
         H = np.zeros((self.nb, self.nb))
         for i in range(self.nb):
-            fh = ic[i] * s[i]
-            H[i, i] = s[i].dot(fh)
+            fh = ic[i] * self.s[i]
+            H[i, i] = self.s[i].dot(fh)
             j = i
             while self.parent[j] != None:
-                fh = xup[j].apply(fh)
+                fh = self.xup[j].apply(fh)
                 j = self.parent[j]
-                H[i, j] = s[j].dot(fh)
+                H[i, j] = self.s[j].dot(fh)
                 H[j, i] = H[i, j]
 
         # DEV
         self._print = False
         self._count += 1
 
-        return H, C
+        return H, self.C
 
     def print(self, msg):
         if self._count >= 10:
@@ -191,7 +192,7 @@ class Model:
         if f_ext is None:
             return fvp
 
-        f_out = copy.deepcopy(fvp)
+        # f_out = copy.deepcopy(fvp)
         x = []
 
         for i in range(self.nb):
@@ -205,9 +206,9 @@ class Model:
                 fa = f_ext[i].as_array()
                 fr = np.linalg.solve(xa.T, fa)
                 # print(f_ext[i].f)
-                f_out[i] -= sv.ForceVector(fr[0:3].reshape(3,), fr[3:6].reshape(3,))  # pyright: ignore[reportArgumentType]
+                fvp[i] -= sv.ForceVector(fr[0:3].reshape(3,), fr[3:6].reshape(3,))  # pyright: ignore[reportArgumentType]
 
-        return f_out
+        return fvp
 
     def calculate_energy_momentum(self):
         xup = []
@@ -239,7 +240,7 @@ class Model:
                 I_tot += xup[i].apply(Ic[i])
                 h_tot += xup[i].apply(hc[i])
 
-        a_grav = self.gravity()
+        a_grav = GRAVITY
         g = a_grav.v
         h = h_tot.f
         mass = I_tot.mass()
@@ -259,8 +260,8 @@ class Model:
 
 
     def calculate_pos_vel(self):
-        xa = []
-        vb = []
+        xa = self.xup
+        vb = self.v
 
         # Calculate velocity and collect joint transforms.
         for i in range(self.nb):
@@ -268,11 +269,11 @@ class Model:
             xup = x_j * self.joint_transforms[i]
             v_j = s * self.qd[i].item()
             if self.parent[i] == None:
-                xa.append(xup)
-                vb.append(v_j)
+                xa[i] = xup
+                vb[i] = v_j
             else:
-                xa.append(xup * xa[self.parent[i]])
-                vb.append(xup.apply(vb[self.parent[i]]) + v_j)
+                xa[i] = xup * xa[self.parent[i]]
+                vb[i] = xup.apply(vb[self.parent[i]]) + v_j
 
         pos = np.zeros((self.nb, 3))
         vel = np.zeros((self.nb, 3))
