@@ -1,66 +1,97 @@
-import numpy as np
-import pyvista as pv
+import math
 
-import spatial_vector as sp
+import numpy as np
+
+import graphics
+import spatial_vector as sv
 from model import Model
 
 
 class DoublePendulum(Model):
     def __init__(self, l0, l1, m0, m1):
         # Physical properties
-        l0 = 1  # length of first link
-        l1 = 1.5  # length of second link
-        rl = 0.1  # radius of link
+        l0 = 0.4  # length of first link (about 16 inches)
+        l1 = 0.5  # length of second link (about 20 inches)
+        rl = 0.025  # radius of link (about 1 inch)
 
-        q = [-np.pi / 2, 0.0]
+        # Calculate mass of each link by selecting some uniform density
+        # and multplying that by the volume of each joint.
+        rho = 2700 # density (roughly the same density as aluminum)
+        m0 = math.pi * (rl ** 2) * l0 * rho
+        m1 = math.pi * (rl ** 2) * l1 * rho
+
+        q = [0.01, 0.0]
         parent = [None, 0]
         joint_types = ["Ry", "Ry"]
-        joint_transforms = [sp.xlt([0, 0, -2]), sp.xlt([0, 0, l0])]
+
+        joint_transforms = [
+            sv.PluckerTransform.xlt(sv.vec3(0., 0., 0.5)),
+            sv.PluckerTransform.xlt(sv.vec3(0., 0., l0)),
+            # sv.PluckerTransform.xlt(sv.vec3(0., 0., l0)),
+        ]
 
         # Mass of each leg, in kgs
         m = [m0, m1]
 
-        rotational_inertia = [
-            utils.cylinder_inertia(m[0], rl, l0),
-            utils.cylinder_inertia(m[1], rl, l1),
+        body_transforms = [
+            sv.PluckerTransform.xlt(sv.vec3(0., 0., l0 / 2)),
+            sv.PluckerTransform.xlt(sv.vec3(0., 0., l1 / 2)),
+            # sv.PluckerTransform.xlt(sv.vec3(0., 0., l1 / 2)),
         ]
 
-        body_transforms = [sp.xlt([0, 0, l0 / 2]), sp.xlt([0, 0, l1 / 2])]
-
         # TODO: I have no idea if this is correct.
-        com = [np.array([0, 0, l0 / 2]), np.array([0, 0, l1 / 2])]
+        com = [
+            np.array([0, 0, l0 / 2]),
+            np.array([0, 0, l1 / 2]),
+            # np.array([0, 0, l1 / 2]),
+        ]
 
         inertia = [
-            sp.mcI(m[0], com[0], rotational_inertia[0]),
-            sp.mcI(m[1], com[1], rotational_inertia[1]),
+            sv.RigidBodyInertia.cylinder(m[0], rl, l0, com[0]),
+            sv.RigidBodyInertia.cylinder(m[1], rl, l1, com[1]),
+            # sv.RigidBodyInertia.cylinder(m[0], rl, l1, com[1]),
         ]
 
         Model.__init__(
             self, q, parent, joint_types, joint_transforms, body_transforms, inertia
         )
 
-        self.links = [l0, l1]
-        self.colors = ["blue", "green"]
+        self.links = [l0, l1, l1]
+        self.colors = ["blue", "green", "yellow"]
         self.rl = rl
 
+        self.gc_body = np.array([0, 1])
+        # Locations of contact points expressed in local coordinates.
+        self.gc_point = np.array([sv.vec3(0., 0., 0.4), sv.vec3(0., 0., 0.5)])
+
+        self.appearance = {
+            1: [
+                graphics.DrawColor("blue"),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0.05, 0.),
+                    p2=sv.vec3(0., -0.05, 0.),
+                    radius=0.05,
+                ),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0., 0.),
+                    p2=sv.vec3(0., 0., l0),
+                    radius=rl
+                )
+            ],
+            2: [
+                graphics.DrawColor("green"),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0.05, 0.),
+                    p2=sv.vec3(0., -0.05, 0.),
+                    radius=0.05,
+                ),
+                graphics.DrawCylinder(
+                    p1=sv.vec3(0., 0., 0.),
+                    p2=sv.vec3(0., 0., l1),
+                    radius=rl
+                )
+            ],
+        }
+
     def joint_forces(self):
-        joint1_friction_force = np.array(
-            [[0], [-2000 * self.qd[0]], [0], [0], [0], [0]]
-        )
-        joint2_friction_force = np.array([[0], [-20 * self.qd[1]], [0], [0], [0], [0]])
-        f_ext = {0: joint1_friction_force, 1: joint2_friction_force}
-        return f_ext
-
-    def color(self, i):
-        return self.colors[i]
-
-    def appearance(self, i, x_up):
-        ZERO = [[0], [0], [0]]
-        x = x_up * self.body_transforms[i]
-        pos_j = sp.spatial_to_3d(x_up, ZERO)
-        pos_b = sp.spatial_to_3d(x, ZERO)
-        dir = pos_b - pos_j
-        body = pv.Cylinder(
-            center=pos_b, direction=dir, radius=self.rl, height=self.links[i]
-        )
-        return body
+        return {}
