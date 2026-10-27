@@ -18,7 +18,7 @@ def ground_contact(p, pd):
     fn = zr * ((-k) * z - d * zd)
 
     if mu == 0:
-        return np.maximum(0, fn) # easy case with no friction
+        return [0, 0, np.maximum(0, fn)] # easy case with no friction
 
     # Step 1: set output variable to correct no-contact values
     # n_d: Number of dimensions (should be 3)
