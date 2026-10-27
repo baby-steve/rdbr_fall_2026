@@ -2,7 +2,7 @@ import numpy as np
 
 def ground_contact(p, pd):
     # Stiffness of ground plan
-    k = 50_000.0
+    k = 100_000.0
     # Damping of the ground plane
     d = 100.0
     # Friction of the ground plane

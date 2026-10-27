@@ -13,21 +13,21 @@ class Quadruped(Model):
         l0 = 0.4  # length of first link
         l1 = 0.5  # length of second link
         rl = 0.025  # radius of link
-        gc = 1.0  # ground clearance
+        gc = 0.5  # ground clearance
         offset_x = 0.4
         offset_y = 0.2
 
         num_legs = 4
 
         q = [
-            0.0, # -np.pi / 4, # 0
+            -math.pi / 4, # -np.pi / 4, # 0
             0, # np.pi / 2, # 1
-            0, # -np.pi / 4, # 2
+            -math.pi / 4, # -np.pi / 4, # 2
             0, # np.pi / 2, # 3
-            math.pi / 2, # 4
+            math.pi / 4, # 4
             0, # np.pi / 2, # 5
 
-            math.pi / 2, # 6
+            math.pi / 4, # 6
             0, # np.pi / 2, # 7
         ]
 

@@ -44,6 +44,9 @@ class Model:
         # Motion subspace of each joint.
         self.s: list[sv.MotionVector] = [None] * self.nb
 
+        self.H: np.array = np.zeros((self.nb, self.nb))
+        self.C: np.array = np.zeros((self.nb, 1))
+
 
     def joint_forces(self):
         return {}
@@ -136,11 +139,11 @@ class Model:
                 self.avp[i] = self.xup[i].apply(GRAVITY) # Can't switch order
             else:
                 self.v[i] = self.xup[i].apply(self.v[self.parent[i]]) + v_j
-                self.avp[i] = self.xup[i].apply(self.avp[self.parent[i]]) + self.v[i].cross(v_j)
+                self.avp[i] = self.xup[i].apply(self.avp[self.parent[i]]) + self.v[i].cross_v(v_j)
 
-            self.fvp[i] = self.inertia[i] * self.avp[i] + self.v[i].cross(self.inertia[i] * self.v[i])
+            self.fvp[i] = self.inertia[i] * self.avp[i] + self.v[i].cross_f(self.inertia[i] * self.v[i])
 
-        self.fvp = self.apply_external_forces(self.xup, self.fvp, f_ext)
+        self.apply_external_forces(self.xup, self.fvp, f_ext)
 
         C = np.zeros([self.nb, 1])
 
@@ -208,9 +211,8 @@ class Model:
         # NOTE: this applies all external forces to all joints.
 
         if f_ext is None:
-            return fvp
-
-        f_out = copy.deepcopy(fvp)
+            return
+        
         x = []
 
         for i in range(self.nb):
@@ -223,10 +225,8 @@ class Model:
                 xa = x[i].as_array()
                 fa = f_ext[i].as_array()
                 fr = np.linalg.solve(xa.T, fa)
-                # print(f_ext[i].f)
-                f_out[i] -= sv.ForceVector(fr[0:3].reshape(3,), fr[3:6].reshape(3,))  # pyright: ignore[reportArgumentType]
-
-        return f_out
+                
+                fvp[i] -= sv.ForceVector(fr[0:3].reshape(3,), fr[3:6].reshape(3,))  # pyright: ignore[reportArgumentType]
 
     def calculate_energy_momentum(self):
         xup = []

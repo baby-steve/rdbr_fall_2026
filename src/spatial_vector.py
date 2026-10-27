@@ -1,4 +1,5 @@
 import numpy as np
+from numba import jit
 
 
 def vec3(x: float, y: float, z: float) -> np.ndarray:
@@ -33,6 +34,8 @@ def rz(theta: float) -> np.ndarray:
 
 
 # vector cross-product operator.
+# TODO: let's performance test this one: 
+# @jit
 def crv(v: np.ndarray) -> np.ndarray:
     assert(v.shape == (3,))
     return np.array([
@@ -78,26 +81,23 @@ class MotionVector:
         return self.w.dot(fv.n) + self.v.dot(fv.f)
 
 
-    def cross(self, other):
-        if type(other) is MotionVector:
-            return MotionVector(
-                np.cross(self.w, other.w),
-                np.cross(self.w, other.v) + np.cross(self.v, other.w),
-            )
-        elif type(other) is ForceVector:
-            return ForceVector(
-                np.cross(self.w, other.f) + np.cross(self.v, other.f),
-                np.cross(self.w, other.f)
-            )
-        else:
-            raise RuntimeError(f"Cross product between motion vector \
-                               and {type(other)} is not defined")
+    def cross_f(self, other):
+        return ForceVector(
+            fast_cross(self.w, other.f) + fast_cross(self.v, other.f),
+            fast_cross(self.w, other.f)
+        )
 
+
+    def cross_v(self, other):
+        return MotionVector(
+            fast_cross(self.w, other.w),
+            fast_cross(self.w, other.v) + fast_cross(self.v, other.w),
+        )
 
     def as_point(self, p: np.ndarray) -> np.ndarray:
         assert(p.shape == (3,))
         # TODO: multiple points.
-        return self.v + np.cross(self.w, p)
+        return self.v + fast_cross(self.w, p)
 
 
     def __mul__(self, other):
@@ -134,11 +134,18 @@ class ForceVector:
         """
         Converts linear force f acting at point p into spatial force vector.
         """
-        return cls(np.cross(p, f), f)
+        return cls(fast_cross(p, f), f)
 
 
     def as_array(self):
-        return np.block([self.n, self.f]).reshape((6, 1))
+        return np.array([
+            [self.n[0]], 
+            [self.n[1]], 
+            [self.n[2]], 
+            [self.f[0]], 
+            [self.f[1]], 
+            [self.f[2]]
+        ]) # np.block([self.n, self.f]).reshape((6, 1))
 
 
     def __mul__(self, other):
@@ -247,42 +254,68 @@ class PluckerTransform:
 
 
     def apply(self, other):
-        if type(other) is MotionVector:
-            return MotionVector(
-                self.E @ other.w,
-                self.E @ (other.v - np.cross(self.r, other.w))
-            )
-        elif type(other) is ForceVector:
-            # X*f
-            return ForceVector(
-                self.E @ (other.n - np.cross(self.r, other.f)),
-                self.E @ other.f
-            )
-        elif type(other) is RigidBodyInertia:
-            rxhx = crv(self.r) @ crv(other.h) # TODO: I think this is correct.
+        match other:
+            case MotionVector():
+                return MotionVector(
+                    self.E @ other.w,
+                    self.E @ (other.v - fast_cross(self.r, other.w))
+                )
+            case ForceVector():
+                # X*f
+                return ForceVector(
+                    self.E @ (other.n - fast_cross(self.r, other.f)),
+                    self.E @ other.f
+                )
+            case RigidBodyInertia():
+                rxhx = crv(self.r) @ crv(other.h) # TODO: I think this is correct.
 
-            return RigidBodyInertia(
-                other.m,
-                self.E @ (other.h - other.m * self.r),
-                # TODO: I think the other crv terms are also correct
-                self.E @ (other.I + rxhx + crv(other.h - other.m * self.r) @ crv(self.r)) @ self.E.T,
-            )
-        elif type(other) is np.ndarray and other.shape == (3,):
-            return self.E @ (other - self.r)
-        else:
-            raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
+                return RigidBodyInertia(
+                    other.m,
+                    self.E @ (other.h - other.m * self.r),
+                    # TODO: I think the other crv terms are also correct
+                    self.E @ (other.I + rxhx + crv(other.h - other.m * self.r) @ crv(self.r)) @ self.E.T,
+                )
+            case np.ndarray():
+                return self.E @ (other - self.r)
+            case _:
+                raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
+
+        # if type(other) is MotionVector:
+        #     return MotionVector(
+        #         self.E @ other.w,
+        #         self.E @ (other.v - fast_cross(self.r, other.w))
+        #     )
+        # elif type(other) is ForceVector:
+        #     # X*f
+        #     return ForceVector(
+        #         self.E @ (other.n - fast_cross(self.r, other.f)),
+        #         self.E @ other.f
+        #     )
+        # elif type(other) is RigidBodyInertia:
+        #     rxhx = crv(self.r) @ crv(other.h) # TODO: I think this is correct.
+
+        #     return RigidBodyInertia(
+        #         other.m,
+        #         self.E @ (other.h - other.m * self.r),
+        #         # TODO: I think the other crv terms are also correct
+        #         self.E @ (other.I + rxhx + crv(other.h - other.m * self.r) @ crv(self.r)) @ self.E.T,
+        #     )
+        # elif type(other) is np.ndarray and other.shape == (3,):
+        #     return self.E @ (other - self.r)
+        # else:
+        #     raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
 
 
     def inv_apply(self, other):
         if type(other) is MotionVector:
             return MotionVector(
                 self.E.T @ other.w,
-                self.E.T @ other.v + np.cross(self.r, self.E.T @ other.w)
+                self.E.T @ other.v + fast_cross(self.r, self.E.T @ other.w)
             )
         elif type(other) is ForceVector:
             # X.T*f
             return ForceVector(
-                self.E.T @ other.n + np.cross(self.r, self.E.T @ other.f),
+                self.E.T @ other.n + fast_cross(self.r, self.E.T @ other.f),
                 self.E.T @ other.f
             )
         elif type(other) is RigidBodyInertia:
@@ -297,17 +330,23 @@ class PluckerTransform:
         else:
             raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
 
-
     def as_array(self):
-        return np.block([[self.E, np.zeros((3, 3))], [-self.E @ crv(self.r), self.E]])
+        A = -self.E @ crv(self.r)
+        return np.array([
+            [self.E[0][0], self.E[0][1], self.E[0][2], 0.0, 0.0, 0.0],
+            [self.E[1][0], self.E[1][1], self.E[1][2], 0.0, 0.0, 0.0],
+            [self.E[2][0], self.E[2][1], self.E[2][2], 0.0, 0.0, 0.0],
+            [A[0][0], A[0][1], A[0][2], self.E[0][0], self.E[0][1], self.E[0][2]],
+            [A[1][0], A[1][1], A[1][2], self.E[1][0], self.E[1][1], self.E[1][2]],
+            [A[2][0], A[2][1], A[2][2], self.E[2][0], self.E[2][1], self.E[2][2]],
+        ])
     
 
     def __mul__(self, other):
-        if type(other) is PluckerTransform:
-            return PluckerTransform(self.E @ other.E, other.r + other.E.T @ self.r)
-        else:
-            raise RuntimeError(f"Cannot multiple plucker transform by {type(other)}")
-
+        assert(type(other) is PluckerTransform)
+        
+        return PluckerTransform(self.E @ other.E, other.r + other.E.T @ self.r)
+    
 
     def __repr__(self) -> str:
         return f"PluckerTransfrom(\n{self.E},\n{self.r}\n)"
@@ -366,8 +405,8 @@ class RigidBodyInertia:
         # Multiple by a motion vector.
         elif type(other) is MotionVector:
             return ForceVector(
-                self.I @ other.w + np.cross(self.h, other.v),
-                self.m * other.v - np.cross(self.h, other.w),
+                self.I @ other.w + fast_cross(self.h, other.v),
+                self.m * other.v - fast_cross(self.h, other.w),
             )
         else:
             raise RuntimeError(f"Cannot multiple inertia by {type(other)}")
@@ -395,3 +434,12 @@ def crm(mv: MotionVector) -> np.ndarray:
     b = crv(v)
     zeros = np.zeros((3, 3))
     return np.block([[a, zeros], [b, a]])
+
+# Super-simplified cross-product used in place of Numpy's.
+# I'm pretty sure its way faster. Big if true.
+def fast_cross(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    return np.array([
+        a[1] * b[2] - a[2] * b[1],
+        -a[0] * b[2] + a[2] * b[0],
+        a[0] * b[1] - a[1] * b[0],
+    ])
