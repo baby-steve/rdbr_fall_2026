@@ -8,7 +8,7 @@ def ground_contact(p, pd):
     # Stiffness of ground plane
     k = 200_000.0
     # Damping of the ground plane
-    d = 300.0
+    d = 100.0
     # Friction of the ground plane
     mu = 0
 

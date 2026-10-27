@@ -147,7 +147,7 @@ class Model:
         for i in reversed(range(self.nb)):
             C[i] = self.s[i].dot(self.fvp[i])
             if self.parent[i] != None:
-                self.fvp[self.parent[i]] += self.xup[i].apply(self.fvp[i])
+                self.fvp[self.parent[i]] += self.xup[i].inv_apply(self.fvp[i])
 
         # Composite inertia calculation
         # Clone our array of inertias so that we don't mutate the data
@@ -155,7 +155,7 @@ class Model:
         ic = copy.deepcopy(self.inertia)
         for i in reversed(range(self.nb)):
             if self.parent[i] != None:
-                ic[self.parent[i]] += self.xup[i].apply(ic[i])
+                ic[self.parent[i]] += self.xup[i].inv_apply(ic[i])
 
         H = np.zeros((self.nb, self.nb))
         for i in range(self.nb):
@@ -163,7 +163,7 @@ class Model:
             H[i, i] = self.s[i].dot(fh)
             j = i
             while self.parent[j] != None:
-                fh = self.xup[j].apply(fh)
+                fh = self.xup[j].inv_apply(fh)
                 j = self.parent[j]
                 H[i, j] = self.s[j].dot(fh)
                 H[j, i] = H[i, j]
@@ -252,11 +252,11 @@ class Model:
 
         for i in reversed(range(self.nb)):
             if self.parent[i] != None:
-                Ic[self.parent[i]] += xup[i].apply(Ic[i])
-                hc[self.parent[i]] += xup[i].apply(hc[i])
+                Ic[self.parent[i]] += xup[i].inv_apply(Ic[i])
+                hc[self.parent[i]] += xup[i].inv_apply(hc[i])
             else:
-                I_tot += xup[i].apply(Ic[i])
-                h_tot += xup[i].apply(hc[i])
+                I_tot += xup[i].inv_apply(Ic[i])
+                h_tot += xup[i].inv_apply(hc[i])
 
         a_grav = GRAVITY
         g = a_grav.v

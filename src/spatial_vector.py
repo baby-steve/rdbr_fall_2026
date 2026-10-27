@@ -265,7 +265,7 @@ class PluckerTransform:
                 other.m,
                 self.E @ (other.h - other.m * self.r),
                 # TODO: I think the other crv terms are also correct
-                self.E @ (other.I + rxhx + (crv(other.h - other.m * self.r) @ crv(self.r))) @ self.E.T,
+                self.E @ (other.I + rxhx + crv(other.h - other.m * self.r) @ crv(self.r)) @ self.E.T,
             )
         elif type(other) is np.ndarray and other.shape == (3,):
             return self.E @ (other - self.r)
@@ -286,7 +286,11 @@ class PluckerTransform:
                 self.E.T @ other.f
             )
         elif type(other) is RigidBodyInertia:
-            raise RuntimeError("Not yet implemented")
+            return RigidBodyInertia(
+                other.m,
+                (self.E.T @ other.h) + (other.m * self.r),
+                (self.E.T @ other.I @ self.E) - crv(self.r) @ crv(self.E.T @ other.h) - crv(self.E.T @ other.h + other.m * self.r) @ crv(self.r)
+            )
         elif type(other) is np.ndarray and other.shape == (3,):
             inv_x = self.inv()
             return inv_x.E @ (other - inv_x.r)
@@ -317,13 +321,10 @@ class RigidBodyInertia:
     where h is momentum, I is the spatial inertia and v is the spatial velocity.
     See section 2.13 of Featherstone for details.
     """
-    def __init__(self, m: float, com: np.ndarray, I: np.ndarray):
-        assert(com.shape == (3,))
+    def __init__(self, m: float, h: np.ndarray, I: np.ndarray):
+        assert(h.shape == (3,))
         assert(I.shape == (3, 3))
-
-        I = I + m * crv(com) @ crv(com).T
         assert(I.shape == (3, 3))
-        h = m * com
 
         self.m = m
         self.h = h
@@ -335,7 +336,9 @@ class RigidBodyInertia:
         a = (1/12) * m * (3 * r**2 + l**2)
         b = (1/2) * m * (r**2)
         inertia_tensor = np.array([[a, 0., 0.], [0., a, 0.], [0., 0., b]])
-        return cls(m, c, inertia_tensor)
+        inertia_tensor = inertia_tensor + m * crv(c) @ crv(c).T
+        h = m * c
+        return cls(m, h, inertia_tensor)
 
 
     @classmethod
@@ -353,9 +356,7 @@ class RigidBodyInertia:
 
 
     def rotational_inertia(self) -> np.ndarray:
-        mC = skew(self.h)
-        assert(mC.shape == (3, 3))
-        return self.I - (mC @ mC.T / self.m)
+        return self.I
 
 
     def __mul__(self, other):

@@ -34,10 +34,27 @@ class TestHello(unittest.TestCase):
             [-6., -12., 14.],
         ])
 
+        print(rbi.I)
+
         self.assertTrue((rbi.I == I_correct).all())
+        self.assertTrue((rbi.com() == c).all())
+
+    def test_roundtrip_inertia_transform(self):
+        m = 2
+        h = sv.vec3(1., 2., 3.)
+        I_c = np.array([[2., 0., 0.], [0., 2., 0.], [0., 0., 4.]])
+        rbi = sv.RigidBodyInertia(m, h, I_c)
+
+        x = sv.PluckerTransform.xlt(sv.vec3(-5., 2., 4.)) # sv.PluckerTransform(sv.rx(np.pi / 4), np.array([-5, -2, 4]))
+        a = x.apply(rbi)
+        b = x.inv_apply(a)
+
+        print("yo")
+        print(rbi.m, rbi.h, rbi.I)
+        print(b.m, b.h, b.I)
 
     def test_plucker_transform_motion_vector(self):
-        v = sv.MotionVector(np.array([1, 2, 3]), np.array([4, 5, 6]))
+        v = sv.MotionVector(np.array([1., 2., 3.]), np.array([4., 5., 6.]))
         x = sv.PluckerTransform(sv.rx(np.pi / 3), np.array([5, 3, 1]))
         res = x.apply(v)
         inv = x.inv_apply(res)

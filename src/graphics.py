@@ -84,7 +84,7 @@ class GraphicsManager:
     def update_render_model(self):
         self.plotter.subplot(0, 1)
 
-        com = pv.Sphere(center=self.model.com, radius=0.1)
+        com = pv.Sphere(center=self.model.com, radius=0.05)
         self.plotter.add_mesh(com, color="red", name="com_viz", render=False)
 
         # DEV: We need to find the positions of the joints and bodies relative to
