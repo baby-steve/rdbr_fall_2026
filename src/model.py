@@ -112,6 +112,7 @@ class Model:
             case _:
                 raise RuntimeError("Unexpected joint type: " + jtype)
 
+
     def compute_H_and_C(self, f_ext):
         """
         Calculate the coefficients of the joint-space equation of motion
@@ -213,20 +214,19 @@ class Model:
         if f_ext is None:
             return
         
-        x = []
+        xs = []
 
         for i in range(self.nb):
             if self.parent[i] == None:
-                x.append(x_up[i])
+                xs.append(x_up[i])
             else:
-                x.append(x_up[i] * x[self.parent[i]])
+                xs.append(x_up[i] * xs[self.parent[i]])
 
             if i in f_ext:
-                xa = x[i].as_array()
-                fa = f_ext[i].as_array()
-                fr = np.linalg.solve(xa.T, fa)
-                
-                fvp[i] -= sv.ForceVector(fr[0:3].reshape(3,), fr[3:6].reshape(3,))  # pyright: ignore[reportArgumentType]
+                # Solve the equation "x*fvp = f_ext"
+                # The following is equivalent to "x' \ f_ext"
+                x = xs[i], f = f_ext[i]
+                fvp[i] -= sv.ForceVector(x.E @ f.n + (x.E.T @ sv.crv(x.E @ x.r)).T @ f.f, x.E @ f.f)
 
     def calculate_energy_momentum(self):
         xup = []
