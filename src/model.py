@@ -72,45 +72,45 @@ class Model:
         # DEV: if we want to handle helical joints, then we'd need
         # to allow `jtype` to be a struture or something with extra fields.
         # For now, a simple string identifier is enough.
-
-        if jtype == "Rx":
-            # Revolute x-axis
-            return (
-                sv.PluckerTransform.rotx(q),
-                sv.MotionVector(sv.vec3(1., 0., 0.), sv.vec3(0., 0., 0.))
-            )
-        elif jtype == "Ry":
-            # Revolute y-axis
-            return (
-                sv.PluckerTransform.roty(q),
-                sv.MotionVector(sv.vec3(0., 1., 0.), sv.vec3(0., 0., 0.))
-            )
-        elif jtype == "Rz":
-            # Revolute z-axis
-            return (
-                sv.PluckerTransform.rotz(q),
-                sv.MotionVector(sv.vec3(0., 0., 1.), sv.vec3(0., 0., 0.))
-            )
-        elif jtype == "Px":
-            # Planar x-axis
-            return (
-                sv.PluckerTransform.xlt(sv.vec3(q, 0., 0.)),
-                sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(1., 0., 0.))
-            )
-        elif jtype == "Py":
-            # Planar y-axis
-            return (
-                sv.PluckerTransform.xlt(sv.vec3(0., q, 0.)),
-                sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 1., 0.))
-            )
-        elif jtype == "Pz":
-            # Planar z-axis
-            return (
-                sv.PluckerTransform.xlt(sv.vec3(0., 0., q)),
-                sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 1.))
-            )
-        else:
-            raise RuntimeError("Unexpected joint type: " + jtype)
+        match jtype:
+            case "Rx":
+                # Revolute x-axis
+                return (
+                    sv.PluckerTransform.rotx(q),
+                    sv.MotionVector(sv.vec3(1., 0., 0.), sv.vec3(0., 0., 0.))
+                )
+            case "Ry":
+                # Revolute y-axis
+                return (
+                    sv.PluckerTransform.roty(q),
+                    sv.MotionVector(sv.vec3(0., 1., 0.), sv.vec3(0., 0., 0.))
+                )
+            case "Rz":
+                # Revolute z-axis
+                return (
+                    sv.PluckerTransform.rotz(q),
+                    sv.MotionVector(sv.vec3(0., 0., 1.), sv.vec3(0., 0., 0.))
+                )
+            case "Px":
+                # Planar x-axis
+                return (
+                    sv.PluckerTransform.xlt(sv.vec3(q, 0., 0.)),
+                    sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(1., 0., 0.))
+                )
+            case "Py":
+                # Planar y-axis
+                return (
+                    sv.PluckerTransform.xlt(sv.vec3(0., q, 0.)),
+                    sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 1., 0.))
+                )
+            case "Pz":
+                # Planar z-axis
+                return (
+                    sv.PluckerTransform.xlt(sv.vec3(0., 0., q)),
+                    sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 1.))
+                )
+            case _:
+                raise RuntimeError("Unexpected joint type: " + jtype)
 
     def compute_H_and_C(self, f_ext):
         """
