@@ -1,5 +1,5 @@
 import numpy as np
-from numba import jit
+# from numba import jit
 
 
 def vec3(x: float, y: float, z: float) -> np.ndarray:
@@ -94,6 +94,7 @@ class MotionVector:
             fast_cross(self.w, other.v) + fast_cross(self.v, other.w),
         )
 
+
     def as_point(self, p: np.ndarray) -> np.ndarray:
         assert(p.shape == (3,))
         # TODO: multiple points.
@@ -102,17 +103,14 @@ class MotionVector:
 
     def __mul__(self, other):
         # Scalar multiplication
-        if type(other) is float:
-            return MotionVector(other * self.w, other * self.v)
-        else:
-            raise RuntimeError(f"Cannot multiple motion vector by {type(other)}")
+        assert(type(other) is float)
+        return MotionVector(other * self.w, other * self.v)
 
 
     def __add__(self, other):
-        if type(other) is MotionVector:
-            return MotionVector(self.w + other.w, self.v + other.v)
-        else:
-            raise RuntimeError(f"Cannot add motion vector and {type(other)}")
+        assert(type(other) is MotionVector)
+        return MotionVector(self.w + other.w, self.v + other.v)
+
 
 
 class ForceVector:
@@ -150,24 +148,20 @@ class ForceVector:
 
     def __mul__(self, other):
         # Scalar multiplication
-        if type(other) is float:
-            return ForceVector(other * self.n, other * self.f)
-        else:
-            raise RuntimeError(f"Cannot multiple force vector by {type(other)}")
-
+        assert(type(other) is float)
+        return ForceVector(other * self.n, other * self.f)
+        
 
     def __add__(self, other):
-        if type(other) is ForceVector:
-            return ForceVector(self.n + other.n, self.f + other.f)
-        else:
-            raise RuntimeError(f"Cannot add force vector and {type(other)}")
-
+        assert(type(other) is ForceVector)
+        return ForceVector(self.n + other.n, self.f + other.f)
+    
 
     def __sub__(self, other):
-        if type(other) is ForceVector:
-            return ForceVector(self.n - other.n, self.f - other.f)
-        else:
-            raise RuntimeError(f"Cannot subtract force vector and {type(other)}")
+        assert(type(other) is ForceVector)
+        return ForceVector(self.n - other.n, self.f - other.f)
+
+
 
 class PluckerTransform:
     def __init__(self, E: np.ndarray, r: np.ndarray):
@@ -252,6 +246,8 @@ class PluckerTransform:
     def inv(self):
         return PluckerTransform(self.E.T, -self.E @ self.r)
 
+    def transpose(self):
+        raise RuntimeError("Unimplemented")
 
     def apply(self, other):
         match other:
@@ -280,55 +276,30 @@ class PluckerTransform:
             case _:
                 raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
 
-        # if type(other) is MotionVector:
-        #     return MotionVector(
-        #         self.E @ other.w,
-        #         self.E @ (other.v - fast_cross(self.r, other.w))
-        #     )
-        # elif type(other) is ForceVector:
-        #     # X*f
-        #     return ForceVector(
-        #         self.E @ (other.n - fast_cross(self.r, other.f)),
-        #         self.E @ other.f
-        #     )
-        # elif type(other) is RigidBodyInertia:
-        #     rxhx = crv(self.r) @ crv(other.h) # TODO: I think this is correct.
-
-        #     return RigidBodyInertia(
-        #         other.m,
-        #         self.E @ (other.h - other.m * self.r),
-        #         # TODO: I think the other crv terms are also correct
-        #         self.E @ (other.I + rxhx + crv(other.h - other.m * self.r) @ crv(self.r)) @ self.E.T,
-        #     )
-        # elif type(other) is np.ndarray and other.shape == (3,):
-        #     return self.E @ (other - self.r)
-        # else:
-        #     raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
-
 
     def inv_apply(self, other):
-        if type(other) is MotionVector:
-            return MotionVector(
-                self.E.T @ other.w,
-                self.E.T @ other.v + fast_cross(self.r, self.E.T @ other.w)
-            )
-        elif type(other) is ForceVector:
-            # X.T*f
-            return ForceVector(
-                self.E.T @ other.n + fast_cross(self.r, self.E.T @ other.f),
-                self.E.T @ other.f
-            )
-        elif type(other) is RigidBodyInertia:
-            return RigidBodyInertia(
-                other.m,
-                (self.E.T @ other.h) + (other.m * self.r),
-                (self.E.T @ other.I @ self.E) - crv(self.r) @ crv(self.E.T @ other.h) - crv(self.E.T @ other.h + other.m * self.r) @ crv(self.r)
-            )
-        elif type(other) is np.ndarray and other.shape == (3,):
-            inv_x = self.inv()
-            return inv_x.E @ (other - inv_x.r)
-        else:
-            raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
+        match other:
+            case MotionVector():
+                return MotionVector(
+                    self.E.T @ other.w,
+                    self.E.T @ other.v + fast_cross(self.r, self.E.T @ other.w)
+                )
+            case ForceVector():
+                return ForceVector(
+                    self.E.T @ other.n + fast_cross(self.r, self.E.T @ other.f),
+                    self.E.T @ other.f
+                )
+            case RigidBodyInertia():
+                return RigidBodyInertia(
+                    other.m,
+                    (self.E.T @ other.h) + (other.m * self.r),
+                    (self.E.T @ other.I @ self.E) - crv(self.r) @ crv(self.E.T @ other.h) - crv(self.E.T @ other.h + other.m * self.r) @ crv(self.r)
+                )
+            case np.ndarray():
+                inv_x = self.inv()
+                return inv_x.E @ (other - inv_x.r)
+            case _:
+                raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
 
     def as_array(self):
         A = -self.E @ crv(self.r)
