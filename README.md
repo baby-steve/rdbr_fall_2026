@@ -13,9 +13,15 @@ Create a virtual environment.
 python venv -m .env
 ```
 
-Install `pyvista`.
+Activate the environment (command depends on operating system).
 ```bash
-pip install pyvista
+.env/Scripts/Activate # windows
+source .env/bin/activate # linux
+```
+
+Install dependencies.
+```bash
+pip install pyvista fury imgui_bundle
 ```
 
 ## Run
@@ -35,6 +41,8 @@ python src/main.py run <model-name>
 Currently, the following models are avaliable:
 * DoublePendulum
 * Quadruped
+* Lever
+* Slider
 
 Models are located in `src/models`
 
