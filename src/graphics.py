@@ -100,24 +100,14 @@ class GraphicsManager:
         # self.plotter.add_mesh(body, color="orange", name="a_body_1", render=False)
 
         xs = self.model.calculate_global_transform()
-
-        default = sv.PluckerTransform.xlt(sv.ZERO)
-
-        # Set mesh color to some default value.
-        color = "blue"
         for i, insts in enumerate(self.model.appearance.values()):
-            if i == 0:
-                x = default
-            else:
-                x = xs[i - 1]
-
             for j, inst in enumerate(insts):
                 if type(inst) is DrawColor:
                     # Update the draw color.
                     color = inst.color
                     continue
 
-                body = inst.appearance(x)
+                body = inst.appearance(xs[i])
                 body_name = "body" + str(i + 1) + str(j + 1)
                 self.plotter.add_mesh(body, color=color, name=body_name, render=False)
 
@@ -165,7 +155,9 @@ class SimDataChart:
         self.chart.y_range = self.bounds
 
 
-class DrawInstruction: ...
+class DrawInstruction: 
+    def appearance_fury(self) -> tuple[np.ndarray, np.ndarray]:
+        ...
 
 
 class DrawColor(DrawInstruction):
@@ -199,6 +191,12 @@ class DrawCylinder(DrawInstruction):
             radius=self.radius,
             height=self.height,
         )
+
+    def appearance_fury(self, xup: sv.PluckerTransform):
+        x_center_global = self.x_center * xup
+        joint_pos = xup.inv_apply(sv.ZERO)
+        center_pos = x_center_global.inv_apply(sv.ZERO)
+        return center_pos, joint_pos
 
 
 class DrawBox(DrawInstruction):

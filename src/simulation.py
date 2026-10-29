@@ -21,11 +21,8 @@ class Simulation:
         """
         # Get external forces. These are in joint space.
         # TODO: forces from controller (pass in as parameter)
-        # TODO: what gets put in tau and what gets put in f_ext?
         f_ext = self.model.joint_forces()
 
-        # t_gc = contact.ground_contact(self.model)
-        # f_ext[7] = np.array([[0], [t_gc], [0], [0], [0], [0]])
         p, pd = self.model.calculate_pos_vel()
         fns = contact.ground_contact(p, pd)
 
@@ -34,7 +31,10 @@ class Simulation:
                 fn = np.array([0., 0., fn])
 
             f = sv.ForceVector.from_linear(fn, pt)
-            f_ext[i] += f
+            if i in f_ext: # TODO: is there a better way to do this?
+                f_ext[i] += f
+            else:
+                f_ext[i] = f
 
         # Calculate joint space inertia matrix and the joint space
         # bias force.
