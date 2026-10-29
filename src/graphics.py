@@ -101,16 +101,23 @@ class GraphicsManager:
 
         xs = self.model.calculate_global_transform()
 
+        default = sv.PluckerTransform.xlt(sv.ZERO)
+
         # Set mesh color to some default value.
         color = "blue"
         for i, insts in enumerate(self.model.appearance.values()):
+            if i == 0:
+                x = default
+            else:
+                x = xs[i - 1]
+
             for j, inst in enumerate(insts):
                 if type(inst) is DrawColor:
                     # Update the draw color.
                     color = inst.color
                     continue
 
-                body = inst.appearance(xs[i])
+                body = inst.appearance(x)
                 body_name = "body" + str(i + 1) + str(j + 1)
                 self.plotter.add_mesh(body, color=color, name=body_name, render=False)
 

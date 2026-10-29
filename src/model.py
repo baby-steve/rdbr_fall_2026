@@ -213,7 +213,7 @@ class Model:
 
         if f_ext is None:
             return
-        
+
         xs = []
 
         for i in range(self.nb):
@@ -225,7 +225,7 @@ class Model:
             if i in f_ext:
                 # Solve the equation "x*fvp = f_ext"
                 # The following is equivalent to "x' \ f_ext"
-                x = xs[i], f = f_ext[i]
+                x, f = xs[i], f_ext[i]
                 fvp[i] -= sv.ForceVector(x.E @ f.n + (x.E.T @ sv.crv(x.E @ x.r)).T @ f.f, x.E @ f.f)
 
     def calculate_energy_momentum(self):

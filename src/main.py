@@ -5,6 +5,7 @@ from models.double_pendulum import DoublePendulum
 from models.lever import Lever
 from models.quadruped import Quadruped
 from models.slider import Slider
+from models.spring import Spring
 from session import PlaybackSession, RunSession
 
 parser = argparse.ArgumentParser()
@@ -31,6 +32,8 @@ if args.subparser_name == "run":
         model = Lever()
     elif model_name == "Slider":
         model = Slider()
+    elif model_name == "Spring":
+        model = Spring()
     else:
         raise RuntimeError("Invalid model name: " + str(model_name))
 

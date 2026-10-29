@@ -30,8 +30,11 @@ class Simulation:
         fns = contact.ground_contact(p, pd)
 
         for fn, i, pt in zip(fns, self.model.gc_body, p):
+            if type(fn) is float:
+                fn = np.array([0., 0., fn])
+
             f = sv.ForceVector.from_linear(fn, pt)
-            f_ext[i] = f
+            f_ext[i] += f
 
         # Calculate joint space inertia matrix and the joint space
         # bias force.
