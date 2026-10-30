@@ -275,24 +275,24 @@ class PluckerTransform:
     def angle_z(self) -> float:
         return math.atan2(self.E[1, 0], self.E[0, 0])
 
+    def to_homogeneous(self) -> np.ndarray:
+        """
+        Convert this Plucker transform into a 4x4 homogeneous coordinate 
+        transform matrix (actually an np.ndarray but whatever). Note that the
+        4x4 matrices used in 3D graphics are displacement operators, which are
+        the inverses of coordinate transforms.
+        """
+        mErx = -self.E @ crv(self.r)
+        s = skew(mErx @ self.E.T)
+        e = self.E
+        return np.array([
+            [e[0, 0], e[0, 1], e[0, 2], s[0]], 
+            [e[1, 0], e[1, 1], e[1, 2], s[1]], 
+            [e[2, 0], e[2, 1], e[2, 2], s[2]], 
+            [0., 0., 0., 1.]]
+        )
+
     def euler_angles(self):
-        # Rx = sigma
-        # Ry = theta
-        # Rz = phi
-
-        # R = self.E
-        # if abs(R[2, 0]) != 1:
-        #     theta_1 = -math.asin(R[2, 0])
-        #     theta_2 = math.pi - theta_1
-        #     sigma_1 = math.atan2(R[2, 1] * math.cos(theta_1), R[2, 2] * math.cos(theta_1))
-        #     sigma_2 = math.atan2(R[2, 1] * math.cos(theta_2), R[2, 2] * math.cos(theta_2))
-        #     phi_1 = math.atan2(R[1, 0] * math.cos(theta_1), R[0, 0] * math.cos(theta_1))
-        #     phi_2 = math.atan2(R[1, 0] * math.cos(theta_2), R[0, 0] * math.cos(theta_2))
-
-        #     print(theta_2, sigma_2, phi_2)
-        #     return np.array([theta_1, sigma_1, phi_1])
-        # else:
-        #     raise RuntimeError("Fuck off")
         w = -skew(self.E) # w == s/theta * v
         s = np.linalg.norm(w)
         c = (np.trace(self.E) - 1) / 2

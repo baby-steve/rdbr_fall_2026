@@ -149,12 +149,51 @@ class TestHello(unittest.TestCase):
 
         print(res[3:6])
 
+    def test_solve_transform_force_equation_thingy(self):
+        # TODO: add checks instead of just visually inspect output.
+        x = sv.PluckerTransform(sv.rx(2), sv.vec3(-1.0, 2.0, 3.0))
+        f = sv.ForceVector(sv.vec3(1.0, 0.0, 2.0), sv.vec3(7.0, 6.0, 5.0))
+
+        xa = x.as_array()
+        fa = f.as_array()
+        fr = np.linalg.solve(xa.T, fa)
+        print(fr)
+
+        fr = np.linalg.inv(xa.T) @ fa
+        print(fr)
+
+        # NOTE: inverse of tranpose is the same as the tranpose of inverse.
+        print(np.linalg.inv(xa.T))
+        print(x.inv().as_array().T)
+        # print(x.as_array())
+        # print(x.as_array().T)
+
+        fr_yo = sv.ForceVector(
+            x.E @ f.n + (x.E.T @ sv.crv(x.E @ x.r)).T @ f.f, x.E @ f.f
+        )
+
+        a11 = x.E  # .T
+        # a21 = (-x.E.T @ sv.crv(-x.E @ x.r)).T
+        a21 = (x.E.T @ sv.crv(x.E @ x.r)).T
+        a22 = x.E  # .T
+        print(fr_yo.as_array())
+        print("diff f", fr_yo.as_array() - fr)
+
+        a12 = np.zeros((3, 3))
+        x_iT = np.block([[a11, a21], [a12, a22]])
+        print(x_iT)
+
+        print("diff np", np.linalg.inv(xa.T) - x_iT)
+        print("diff sv", x.inv().as_array().T - x_iT)
+
+        # fr_yo = np.block([[a11 @ f.n + a21 @ f.f], [a12 @ f.n + a22 @ f.f]]).reshape((6,1))
+
     def test_plucker_transform_angle(self):
         x = (
             sv.PluckerTransform.xlt(np.array([1.0, 0.0, 0.0]))
-             * sv.PluckerTransform.rotx(0.45)
-             * sv.PluckerTransform.rotz(0.5)
-             * sv.PluckerTransform.roty(1.5)
+            * sv.PluckerTransform.rotx(0.45)
+            * sv.PluckerTransform.rotz(0.5)
+            * sv.PluckerTransform.roty(1.5)
         )
 
         # self.assertAlmostEqual(x.angle_x(), 0.45)
@@ -176,15 +215,101 @@ class TestHello(unittest.TestCase):
         print(theta_x, theta_y, theta_z)
 
     def test_transform_as_quat(self):
-        x = (
+        x1 = (
             sv.PluckerTransform.xlt(np.array([1.0, 0.0, 0.0]))
-             * sv.PluckerTransform.rotx(0.45)
-             * sv.PluckerTransform.rotz(0.5)
-             * sv.PluckerTransform.roty(1.5)
+            * sv.PluckerTransform.rotx(0.45)
+            * sv.PluckerTransform.rotz(0.5)
+            * sv.PluckerTransform.roty(1.5)
         )
 
-        q = x.as_quaternion()
-        print(q)
+        x2 = (
+            sv.PluckerTransform.xlt(np.array([1.0, 0.0, 0.0]))
+            * sv.PluckerTransform.rotz(0.5)
+            * sv.PluckerTransform.rotx(0.45)
+            * sv.PluckerTransform.roty(1.5)
+        )
+
+        q1 = x1.as_quaternion()
+        q2 = x2.as_quaternion()
+        print(q1, q2)
+
+    def test_plucker_rotx_to_homogenous_transform(self):
+        x1 = sv.PluckerTransform.rotx(1.5)
+        h1 = x1.to_homogeneous()
+
+        h_correct = np.array(
+            [
+                [1.0000, 0, 0, 0],
+                [0, 0.070737201667703, 0.997494986604054, 0],
+                [0, -0.997494986604054, 0.070737201667703, 0],
+                [0, 0, 0, 1.0000],
+            ]
+        )
+
+        self.assertTrue(np.allclose(h1, h_correct))
+
+    def test_plucker_roty_to_homogenous_transform(self):
+        x1 = sv.PluckerTransform.roty(1.5)
+        h1 = x1.to_homogeneous()
+
+        h_correct = np.array(
+            [
+                [0.070737201667703, 0, -0.997494986604054, 0],
+                [0, 1.0, 0, 0],
+                [0.997494986604054, 0, 0.070737201667703, 0],
+                [0, 0, 0, 1.0],
+            ]
+        )
+
+        self.assertTrue(np.allclose(h1, h_correct))
+
+    def test_plucker_rotz_to_homogenous_transform(self):
+        x1 = sv.PluckerTransform.rotz(1.5)
+        h1 = x1.to_homogeneous()
+
+        h_correct = np.array(
+            [
+                [0.070737201667703, 0.997494986604054, 0, 0],
+                [-0.997494986604054, 0.070737201667703, 0, 0],
+                [0, 0, 1.0, 0],
+                [0, 0, 0, 1.0],
+            ]
+        )
+
+        self.assertTrue(np.allclose(h1, h_correct))
+
+    def test_plucker_xlt_to_homogenous_transform(self):
+        x1 = sv.PluckerTransform.xlt(sv.vec3(-1.0, 2.0, 3.0))
+        h1 = x1.to_homogeneous()
+
+        h_correct = np.array(
+            [
+                [1, 0, 0, 1],
+                [0, 1, 0, -2],
+                [0, 0, 1, -3],
+                [0, 0, 0, 1],
+            ]
+        )
+
+        print("kalls", h1, h_correct)
+        self.assertTrue(np.allclose(h1, h_correct))
+
+    def test_plucker_roty_xlt_to_homogenous_transform(self):
+        x1 = sv.PluckerTransform.roty(0.5) * sv.PluckerTransform.xlt(
+            sv.vec3(-1.0, 2.0, 3.0)
+        )
+        h1 = x1.to_homogeneous()
+
+        h_correct = np.array(
+            [
+                [0.877582561890373, 0, -0.479425538604203, 2.315859177702982],
+                [0, 1.0, 0, -2.0],
+                [0.479425538604203, 0, 0.877582561890373, -2.153322147066915],
+                [0, 0, 0, 1.0],
+            ]
+        )
+
+        self.assertTrue(np.allclose(h1, h_correct))
 
 
 if __name__ == "__main__":

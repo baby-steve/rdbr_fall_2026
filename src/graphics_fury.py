@@ -103,15 +103,9 @@ class FuryGraphicsManager:
 
     def update(self, _):
         xs = self.model.calculate_global_transform()
-        Es = self.model.calculate_global_rotation()
-        prev_qy = 0
-        prev_qz = 0
-
+        
         for i in range(self.model.nb):
-            j_type = self.model.joint_types[i]
             x = xs[i]
-            E = Es[i]
-            q = self.model.q[i]
 
             if i in self.actor_groups:
                 group = self.actor_groups[i]
@@ -119,64 +113,9 @@ class FuryGraphicsManager:
                 # No drawing instructions for this body.
                 continue
 
-            for id, a, inst in group:
-                center, _ = inst.appearance_fury(x)
-
-                a: actor.Mesh = a
-
-                a.local.position = center
-                a.local.rotation = sv.quaternion(E)
-                # if j_type == "Ry":
-                #     a.local.euler_y = q + prev_qy # -angle
-                # elif j_type == "Rz":
-                #     a.local.euler_z = q + prev_qz
-
-                # a.local.euler_y += prev_qy
-                # a.local.euler_z += prev_qz
-
-            if j_type == "Ry":
-                prev_qy += q # + prev_q  # -angle
-            elif j_type == "Rz":
-                prev_qz += q
-            else:
-                prev_qy = 0
-
-
-        # prev_q = 0
-        # for i, group in enumerate(self.actor_groups):
-        #     for id, a, inst in group:
-        #         # print(id)
-        #         if id == 0:
-        #             center, _ = inst.appearance_fury(sv.PluckerTransform.xlt(sv.ZERO))
-        #             a.local.position = center
-        #             idx = 0
-        #             j_type = "K"
-        #             continue
-        #         else:
-        #             center, _ = inst.appearance_fury(xs[id - 1])
-
-        #         idx = id - 1
-
-
-        #         # print(np.arctan(center[2] / center[0]))
-        #         # theta_1 = np.arctan(center[2] / center[0])
-        #         # theta_2 = np.arctan(joint[2] / joint[0])
-        #         # TODO: directly write out math instead of using linalg.norm
-        #         # angle = np.acos(center.dot(joint) / (np.linalg.norm(center) * np.linalg.norm(joint)))
-        #         # print(angle)
-        #         j_type = self.model.joint_types[idx]
-        #         if j_type[0] == "R":
-        #             a.local.euler_y = self.model.q[idx] + prev_q  # -angle
-
-        #         # actor.local.euler_x = nd - np.arctan(center[1] / center[2])
-        #         # if center[1] != 0:
-        #         #     actor.local.euler_z = nd - np.arctan(center[0] / center[1])
-
-        #     if j_type[0] == "R":
-        #         # prev_q = prev_q if self.model.parent[idx] != None else prev_q + self.model.q[idx]
-        #         prev_q += self.model.q[idx]
-        #     # if j_type[0] == "P":
-        #     #    prev_q = 0
+            for _, a, inst in group:
+                coord_transform = (inst.x_center * x).to_homogeneous()
+                a.local.matrix = np.linalg.inv(coord_transform)
 
         self.show.render()
 
