@@ -1,17 +1,10 @@
 import argparse
 import sys
 
-from models.double_pendulum import DoublePendulum
-from models.lever import Lever
-from models.quadruped import Quadruped
-from models.slider import Slider
-from models.spring import Spring
-from models.double_pendulum_fb import DoublePendulumFB
-from session import PlaybackSession, RunSession
 import graphics
 import graphics_fury
-from data import DataManager
-import datetime
+import model
+from session import PlaybackSession, RunSession
 
 parser = argparse.ArgumentParser()
 subparsers = parser.add_subparsers(dest="subparser_name")
@@ -32,20 +25,7 @@ args = parser.parse_args()
 if args.subparser_name == "run":
     print("Run")
     model_name = args.model
-    if model_name == "DoublePendulum":
-        model = DoublePendulum(1, 1.5, 1.25, 1.25)
-    elif model_name == "DoublePendulumFB":
-        model = DoublePendulumFB(1, 1.5, 1.25, 1.25)
-    elif model_name == "Quadruped":
-        model = Quadruped(1.0, 1.5, 1.0, 1.0)
-    elif model_name == "Lever":
-        model = Lever()
-    elif model_name == "Slider":
-        model = Slider()
-    elif model_name == "Spring":
-        model = Spring()
-    else:
-        raise RuntimeError("Invalid model name: " + str(model_name))
+    model = model.get_model(model_name)
 
     if args.timestep:
         timestep = float(args.timestep)

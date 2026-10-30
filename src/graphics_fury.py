@@ -1,34 +1,18 @@
-from model import Model
-import spatial_vector as sv
-from fury import actor, Scene, ShowManager, window
-import numpy as np
-import graphics
-from imgui_bundle import imgui, implot
-from data import DataManager
-from enum import Enum
 import datetime
+
+import numpy as np
+from fury import Scene, ShowManager, actor, window
+from imgui_bundle import imgui, implot
+
+import graphics
+import spatial_vector as sv
+from data import DataManager
+from model import Model
+
 
 # TODO: rename to just "GraphicsManager" whenever we're done porting
 # graphics over from pyvista
-
-
-def create_imgui_controls():
-    # Set the initial position and size of the ImGui window. The
-    # ``first_use_ever`` condition ensures this is only applied the
-    # first time the window appears.
-    imgui.set_next_window_pos((10, 10), imgui.Cond_.first_use_ever)
-    imgui.set_next_window_size((220, 120), imgui.Cond_.first_use_ever)
-
-    expanded, _ = imgui.begin("Controls")
-    if expanded:
-        # The checkbox returns (changed, value); we only need the value.
-        imgui.text("Hello, World!")
-
-    imgui.end()
-
-
 class FuryGraphicsManager:
-    actor_groups: dict[list[tuple[int, actor.Mesh, graphics.DrawInstruction]]]
     data: DataManager
     startup = True
 
@@ -55,20 +39,27 @@ class FuryGraphicsManager:
                 else:
                     center = np.array([sv.ZERO])
 
-                a = actor.cylinder(
-                    centers=center,
-                    colors=(0, 0, 1),
-                    radii=inst.radius,
-                    height=inst.height,
-                    directions=inst.initial_direction,
-                )
+                if type(inst) is graphics.DrawCylinder:
+                    a = actor.cylinder(
+                        centers=center,
+                        colors=(0, 0, 1),
+                        radii=inst.radius,
+                        height=inst.height,  # pyright: ignore[reportArgumentType]
+                        directions=inst.initial_direction,
+                    )
+                elif type(inst) is graphics.DrawBox:
+                    a = actor.box(
+                        centers=center,
+                        colors=(0, 0, 1),
+                        scales=inst.scale,
+                    )
+                else:
+                    raise RuntimeError("Unrecognized drawing instruction")
 
                 actors.append((body_id, a, inst))
                 self.scene.add(a)
 
             self.actor_groups[body_id] = actors
-
-        # print(self.actor_groups)
 
         # Spawn some ground.
         ground = actor.box(
@@ -87,7 +78,7 @@ class FuryGraphicsManager:
             show_fps=True,
             imgui=True,
             imgui_draw_function=self.gui,
-            size=(1000, 720)
+            size=(1000, 720),
         )
 
         self.show.show_axes_gizmo(position=(940, 60))
@@ -103,7 +94,7 @@ class FuryGraphicsManager:
 
     def update(self, _):
         xs = self.model.calculate_global_transform()
-        
+
         for i in range(self.model.nb):
             x = xs[i]
 
@@ -157,7 +148,6 @@ class FuryGraphicsManager:
         # Render an animated plot
         if implot.begin_plot(
             title_id="plot_position",
-            # the window's width (-1), and 20 em high (1 em = the height of a character)
             size=imgui.ImVec2(280, 200),
         ):
             x = np.array(self.data.time)  # np.arange(0, np.pi * 4, 0.01)
@@ -169,7 +159,7 @@ class FuryGraphicsManager:
             )
 
             for pos in self.data.position:
-                y = np.array(pos)  # np.cos(x + imgui.get_time())
+                y = np.array(pos)
                 implot.plot_line("position", x, y)
 
             implot.end_plot()
@@ -177,10 +167,9 @@ class FuryGraphicsManager:
         # Render an animated plot
         if implot.begin_plot(
             title_id="plot_velocity",
-            # the window's width (-1), and 20 em high (1 em = the height of a character)
             size=imgui.ImVec2(280, 200),
         ):
-            x = np.array(self.data.time)  # np.arange(0, np.pi * 4, 0.01)
+            x = np.array(self.data.time)
             implot.setup_axes(
                 "time",
                 "velocity",
@@ -189,7 +178,7 @@ class FuryGraphicsManager:
             )
 
             for pos in self.data.velocity:
-                y = np.array(pos)  # np.cos(x + imgui.get_time())
+                y = np.array(pos)
                 implot.plot_line("velocity", x, y)
 
             implot.end_plot()
@@ -197,10 +186,9 @@ class FuryGraphicsManager:
         # Render an animated plot
         if implot.begin_plot(
             title_id="plot_energy",
-            # the window's width (-1), and 20 em high (1 em = the height of a character)
             size=imgui.ImVec2(280, 200),
         ):
-            x = np.array(self.data.time)  # np.arange(0, np.pi * 4, 0.01)
+            x = np.array(self.data.time)
             implot.setup_axes(
                 "time",
                 "energy",
@@ -209,7 +197,7 @@ class FuryGraphicsManager:
             )
 
             for pos in self.data.energy:
-                y = np.array(pos)  # np.cos(x + imgui.get_time())
+                y = np.array(pos)
                 implot.plot_line("energy (J)", x, y)
 
             implot.end_plot()

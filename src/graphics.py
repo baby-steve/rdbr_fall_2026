@@ -156,9 +156,7 @@ class SimDataChart:
         self.chart.y_range = self.bounds
 
 
-class DrawInstruction:
-    def appearance_fury(self, xup: sv.PluckerTransform) -> tuple[np.ndarray, np.ndarray]:
-        ...
+class DrawInstruction: ...
 
 
 class DrawColor(DrawInstruction):
@@ -193,15 +191,11 @@ class DrawCylinder(DrawInstruction):
             height=self.height,
         )
 
-    def appearance_fury(self, xup: sv.PluckerTransform):
-        x_center_global = self.x_center * xup
-        joint_pos = xup.inv_apply(sv.ZERO)
-        center_pos = x_center_global.inv_apply(sv.ZERO)
-        return center_pos, joint_pos
-
 
 class DrawBox(DrawInstruction):
     def __init__(self, p1: np.ndarray, p2: np.ndarray):
         super().__init__()
         self.p1 = p1
         self.p2 = p2
+        self.x_center = sv.PluckerTransform.xlt(0.5 * (p1 + p2))
+        self.scale = p1 - p2

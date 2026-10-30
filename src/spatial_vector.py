@@ -1,6 +1,8 @@
-import numpy as np
 # from numba import jit
 import math
+
+import numpy as np
+
 
 def vec3(x: float, y: float, z: float) -> np.ndarray:
     """
@@ -37,12 +39,8 @@ def rz(theta: float) -> np.ndarray:
 # TODO: let's performance test this one:
 # @jit
 def crv(v: np.ndarray) -> np.ndarray:
-    assert(v.shape == (3,))
-    return np.array([
-        [0, -v[2], v[1]],
-        [v[2], 0, -v[0]],
-        [-v[1], v[0], 0]
-    ])
+    assert v.shape == (3,)
+    return np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
 
 
 def skew(A: np.ndarray) -> np.ndarray:
@@ -59,8 +57,8 @@ def skew(A: np.ndarray) -> np.ndarray:
 
 
 def quaternion(E):
-    tr = np.trace(E) # Trace is 4 * q0 ** 2 - 1
-    v = -skew(E) # v is 2 * q0 * [q1; q2; q3]
+    tr = np.trace(E)  # Trace is 4 * q0 ** 2 - 1
+    v = -skew(E)  # v is 2 * q0 * [q1; q2; q3]
     if tr > 0:
         q = np.block([(tr + 1) / 2, v])
     else:
@@ -75,35 +73,33 @@ def quaternion(E):
         if q[0] < 0:
             q = -q
     return q / np.linalg.norm(q)
-ZERO = vec3(0., 0., 0.)
+
+
+ZERO = vec3(0.0, 0.0, 0.0)
 
 
 class MotionVector:
     def __init__(self, w: np.ndarray, v: np.ndarray):
-        assert(w.shape == (3,))
-        assert(v.shape == (3,))
+        assert w.shape == (3,)
+        assert v.shape == (3,)
 
         self.w = w
         self.v = v
 
-
     @classmethod
     def default(cls):
-        return cls(vec3(0., 0., 0.), vec3(0., 0., 0.))
-
+        return cls(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0))
 
     def dot(self, fv):
-        assert(type(fv) is ForceVector)
+        assert type(fv) is ForceVector
 
         return self.w.dot(fv.n) + self.v.dot(fv.f)
-
 
     def cross_f(self, other):
         return ForceVector(
             fast_cross(self.w, other.f) + fast_cross(self.v, other.f),
-            fast_cross(self.w, other.f)
+            fast_cross(self.w, other.f),
         )
-
 
     def cross_v(self, other):
         return MotionVector(
@@ -111,38 +107,32 @@ class MotionVector:
             fast_cross(self.w, other.v) + fast_cross(self.v, other.w),
         )
 
-
     def as_point(self, p: np.ndarray) -> np.ndarray:
-        assert(p.shape == (3,))
+        assert p.shape == (3,)
         # TODO: multiple points.
         return self.v + fast_cross(self.w, p)
 
-
     def __mul__(self, other):
         # Scalar multiplication
-        assert(type(other) is float)
+        assert type(other) is float
         return MotionVector(other * self.w, other * self.v)
 
-
     def __add__(self, other):
-        assert(type(other) is MotionVector)
+        assert type(other) is MotionVector
         return MotionVector(self.w + other.w, self.v + other.v)
-
 
 
 class ForceVector:
     def __init__(self, n: np.ndarray, f: np.ndarray):
-        assert(n.shape == (3,))
-        assert(f.shape == (3,))
+        assert n.shape == (3,)
+        assert f.shape == (3,)
 
         self.n = n
         self.f = f
 
-
     @classmethod
     def default(cls):
-        return cls(vec3(0., 0., 0.), vec3(0., 0., 0.))
-
+        return cls(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0))
 
     @classmethod
     def from_linear(cls, f, p):
@@ -151,39 +141,36 @@ class ForceVector:
         """
         return cls(fast_cross(p, f), f)
 
-
     def as_array(self):
-        return np.array([
-            [self.n[0]],
-            [self.n[1]],
-            [self.n[2]],
-            [self.f[0]],
-            [self.f[1]],
-            [self.f[2]]
-        ]) # np.block([self.n, self.f]).reshape((6, 1))
-
+        return np.array(
+            [
+                [self.n[0]],
+                [self.n[1]],
+                [self.n[2]],
+                [self.f[0]],
+                [self.f[1]],
+                [self.f[2]],
+            ]
+        )  # np.block([self.n, self.f]).reshape((6, 1))
 
     def __mul__(self, other):
         # Scalar multiplication
-        assert(type(other) is float)
+        assert type(other) is float
         return ForceVector(other * self.n, other * self.f)
 
-
     def __add__(self, other):
-        assert(type(other) is ForceVector)
+        assert type(other) is ForceVector
         return ForceVector(self.n + other.n, self.f + other.f)
 
-
     def __sub__(self, other):
-        assert(type(other) is ForceVector)
+        assert type(other) is ForceVector
         return ForceVector(self.n - other.n, self.f - other.f)
-
 
 
 class PluckerTransform:
     def __init__(self, E: np.ndarray, r: np.ndarray):
-        assert(E.shape == (3, 3))
-        assert(r.shape == (3,))
+        assert E.shape == (3, 3)
+        assert r.shape == (3,)
 
         self.E = E
         self.r = r
@@ -205,7 +192,6 @@ class PluckerTransform:
         """
         return cls(rx(theta), np.zeros((3,)))
 
-
     @classmethod
     def roty(cls, theta: float):
         """
@@ -222,7 +208,6 @@ class PluckerTransform:
         rotating `theta` radians about their shared y-axis.
         """
         return cls(ry(theta), np.zeros((3,)))
-
 
     @classmethod
     def rotz(cls, theta: float):
@@ -241,7 +226,6 @@ class PluckerTransform:
         """
         return cls(rz(theta), np.zeros((3,)))
 
-
     @classmethod
     def xlt(cls, r: np.ndarray):
         """
@@ -256,9 +240,8 @@ class PluckerTransform:
         =======
         The Plucker transform
         """
-        assert(r.shape == (3,))
+        assert r.shape == (3,)
         return cls(np.eye(3, 3), r)
-
 
     def inv(self):
         return PluckerTransform(self.E.T, -self.E @ self.r)
@@ -270,14 +253,16 @@ class PluckerTransform:
         return math.atan2(self.E[2, 1], self.E[2, 2])
 
     def angle_y(self) -> float:
-        return math.atan2(-self.E[2, 0], math.sqrt(self.E[2, 1] ** 2 + self.E[2, 2] ** 2))
+        return math.atan2(
+            -self.E[2, 0], math.sqrt(self.E[2, 1] ** 2 + self.E[2, 2] ** 2)
+        )
 
     def angle_z(self) -> float:
         return math.atan2(self.E[1, 0], self.E[0, 0])
 
     def to_homogeneous(self) -> np.ndarray:
         """
-        Convert this Plucker transform into a 4x4 homogeneous coordinate 
+        Convert this Plucker transform into a 4x4 homogeneous coordinate
         transform matrix (actually an np.ndarray but whatever). Note that the
         4x4 matrices used in 3D graphics are displacement operators, which are
         the inverses of coordinate transforms.
@@ -285,22 +270,26 @@ class PluckerTransform:
         mErx = -self.E @ crv(self.r)
         s = skew(mErx @ self.E.T)
         e = self.E
-        return np.array([
-            [e[0, 0], e[0, 1], e[0, 2], s[0]], 
-            [e[1, 0], e[1, 1], e[1, 2], s[1]], 
-            [e[2, 0], e[2, 1], e[2, 2], s[2]], 
-            [0., 0., 0., 1.]]
+        return np.array(
+            [
+                [e[0, 0], e[0, 1], e[0, 2], s[0]],
+                [e[1, 0], e[1, 1], e[1, 2], s[1]],
+                [e[2, 0], e[2, 1], e[2, 2], s[2]],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
         )
 
     def euler_angles(self):
-        w = -skew(self.E) # w == s/theta * v
+        w = -skew(self.E)  # w == s/theta * v
         s = np.linalg.norm(w)
         c = (np.trace(self.E) - 1) / 2
         theta = np.atan2(s, c)
 
         if s == 0:
             v = ZERO
-        elif theta < 0.9 * np.pi: # Somewhat arbitrary threshold (just needs to be close to pi)
+        elif (
+            theta < 0.9 * np.pi
+        ):  # Somewhat arbitrary threshold (just needs to be close to pi)
             v = theta / s * w
         else:
             # Extract v*v' component from E and pick biggest column (best chance to get sign right)
@@ -326,8 +315,8 @@ class PluckerTransform:
         return v
 
     def as_quaternion(self):
-        tr = np.trace(self.E) # Trace is 4 * q0 ** 2 - 1
-        v = -skew(self.E) # v is 2 * q0 * [q1; q2; q3]
+        tr = np.trace(self.E)  # Trace is 4 * q0 ** 2 - 1
+        v = -skew(self.E)  # v is 2 * q0 * [q1; q2; q3]
         if tr > 0:
             q = np.block([(tr + 1) / 2, v])
         else:
@@ -348,47 +337,48 @@ class PluckerTransform:
         match other:
             case MotionVector():
                 return MotionVector(
-                    self.E @ other.w,
-                    self.E @ (other.v - fast_cross(self.r, other.w))
+                    self.E @ other.w, self.E @ (other.v - fast_cross(self.r, other.w))
                 )
             case ForceVector():
                 # X*f
                 return ForceVector(
-                    self.E @ (other.n - fast_cross(self.r, other.f)),
-                    self.E @ other.f
+                    self.E @ (other.n - fast_cross(self.r, other.f)), self.E @ other.f
                 )
             case RigidBodyInertia():
-                rxhx = crv(self.r) @ crv(other.h) # TODO: I think this is correct.
+                rxhx = crv(self.r) @ crv(other.h)  # TODO: I think this is correct.
 
                 return RigidBodyInertia(
                     other.m,
                     self.E @ (other.h - other.m * self.r),
                     # TODO: I think the other crv terms are also correct
-                    self.E @ (other.I + rxhx + crv(other.h - other.m * self.r) @ crv(self.r)) @ self.E.T,
+                    self.E
+                    @ (other.I + rxhx + crv(other.h - other.m * self.r) @ crv(self.r))
+                    @ self.E.T,
                 )
             case np.ndarray():
                 return self.E @ (other - self.r)
             case _:
                 raise RuntimeError(f"Cannot apply Plucker transforms to {type(other)}")
 
-
     def inv_apply(self, other):
         match other:
             case MotionVector():
                 return MotionVector(
                     self.E.T @ other.w,
-                    self.E.T @ other.v + fast_cross(self.r, self.E.T @ other.w)
+                    self.E.T @ other.v + fast_cross(self.r, self.E.T @ other.w),
                 )
             case ForceVector():
                 return ForceVector(
                     self.E.T @ other.n + fast_cross(self.r, self.E.T @ other.f),
-                    self.E.T @ other.f
+                    self.E.T @ other.f,
                 )
             case RigidBodyInertia():
                 return RigidBodyInertia(
                     other.m,
                     (self.E.T @ other.h) + (other.m * self.r),
-                    (self.E.T @ other.I @ self.E) - crv(self.r) @ crv(self.E.T @ other.h) - crv(self.E.T @ other.h + other.m * self.r) @ crv(self.r)
+                    (self.E.T @ other.I @ self.E)
+                    - crv(self.r) @ crv(self.E.T @ other.h)
+                    - crv(self.E.T @ other.h + other.m * self.r) @ crv(self.r),
                 )
             case np.ndarray():
                 inv_x = self.inv()
@@ -398,21 +388,21 @@ class PluckerTransform:
 
     def as_array(self):
         A = -self.E @ crv(self.r)
-        return np.array([
-            [self.E[0][0], self.E[0][1], self.E[0][2], 0.0, 0.0, 0.0],
-            [self.E[1][0], self.E[1][1], self.E[1][2], 0.0, 0.0, 0.0],
-            [self.E[2][0], self.E[2][1], self.E[2][2], 0.0, 0.0, 0.0],
-            [A[0][0], A[0][1], A[0][2], self.E[0][0], self.E[0][1], self.E[0][2]],
-            [A[1][0], A[1][1], A[1][2], self.E[1][0], self.E[1][1], self.E[1][2]],
-            [A[2][0], A[2][1], A[2][2], self.E[2][0], self.E[2][1], self.E[2][2]],
-        ])
-
+        return np.array(
+            [
+                [self.E[0][0], self.E[0][1], self.E[0][2], 0.0, 0.0, 0.0],
+                [self.E[1][0], self.E[1][1], self.E[1][2], 0.0, 0.0, 0.0],
+                [self.E[2][0], self.E[2][1], self.E[2][2], 0.0, 0.0, 0.0],
+                [A[0][0], A[0][1], A[0][2], self.E[0][0], self.E[0][1], self.E[0][2]],
+                [A[1][0], A[1][1], A[1][2], self.E[1][0], self.E[1][1], self.E[1][2]],
+                [A[2][0], A[2][1], A[2][2], self.E[2][0], self.E[2][1], self.E[2][2]],
+            ]
+        )
 
     def __mul__(self, other):
-        assert(type(other) is PluckerTransform)
+        assert type(other) is PluckerTransform
 
         return PluckerTransform(self.E @ other.E, other.r + other.E.T @ self.r)
-
 
     def __repr__(self) -> str:
         return f"PluckerTransfrom(\n{self.E},\n{self.r}\n)"
@@ -426,43 +416,48 @@ class RigidBodyInertia:
     where h is momentum, I is the spatial inertia and v is the spatial velocity.
     See section 2.13 of Featherstone for details.
     """
+
     def __init__(self, m: float, h: np.ndarray, I: np.ndarray):
-        assert(h.shape == (3,))
-        assert(I.shape == (3, 3))
-        assert(I.shape == (3, 3))
+        assert h.shape == (3,)
+        assert I.shape == (3, 3)
+        assert I.shape == (3, 3)
 
         self.m = m
         self.h = h
         self.I = I
 
-
     @classmethod
     def cylinder(cls, m, r, l, c):
-        a = (1/12) * m * (3 * r**2 + l**2)
-        b = (1/2) * m * (r**2)
-        inertia_tensor = np.array([[a, 0., 0.], [0., a, 0.], [0., 0., b]])
+        a = (1 / 12) * m * (3 * r**2 + l**2)
+        b = (1 / 2) * m * (r**2)
+        inertia_tensor = np.array([[a, 0.0, 0.0], [0.0, a, 0.0], [0.0, 0.0, b]])
         inertia_tensor = inertia_tensor + m * crv(c) @ crv(c).T
         h = m * c
         return cls(m, h, inertia_tensor)
 
+    @classmethod
+    def cuboid(cls, m, w, h, d, com):
+        # TODO: validate that the directions are correct.
+        a = (1 / 12) * m * (h**2 + d**2)
+        b = (1 / 12) * m * (w**2 + h**2)
+        inertia_tensor = np.array([[a, 0.0, 0.0], [0.0, a, 0.0], [0.0, 0.0, b]])
+        inertia_tensor = inertia_tensor + m * crv(com) @ crv(com).T
+        h = m * com
+        return cls(m, h, inertia_tensor)
 
     @classmethod
     def default(cls):
         I = np.zeros((3, 3))
-        return cls(0, vec3(0., 0., 0.), I)
-
+        return cls(0, vec3(0.0, 0.0, 0.0), I)
 
     def mass(self) -> float:
         return self.m
 
-
     def com(self) -> np.ndarray:
         return self.h / self.m
 
-
     def rotational_inertia(self) -> np.ndarray:
         return self.I
-
 
     def __mul__(self, other):
         # Scalar multiplication.
@@ -477,12 +472,14 @@ class RigidBodyInertia:
         else:
             raise RuntimeError(f"Cannot multiple inertia by {type(other)}")
 
-
     def __add__(self, other):
         if type(other) is RigidBodyInertia:
-            return RigidBodyInertia(self.m + other.m, self.h + other.h, self.I + other.I)
+            return RigidBodyInertia(
+                self.m + other.m, self.h + other.h, self.I + other.I
+            )
         else:
             raise RuntimeError(f"Cannot add force vector and {type(other)}")
+
 
 # motion cross-product operator.
 def crm(mv: MotionVector) -> np.ndarray:
@@ -494,18 +491,21 @@ def crm(mv: MotionVector) -> np.ndarray:
     v : np.ndarray
     Motion vector representing spatial velocity.
     """
-    w = mv.w # "first three plucker coordinates"
-    v = mv.v # "second three plucker coordinates"
+    w = mv.w  # "first three plucker coordinates"
+    v = mv.v  # "second three plucker coordinates"
     a = crv(w)
     b = crv(v)
     zeros = np.zeros((3, 3))
     return np.block([[a, zeros], [b, a]])
 
+
 # Super-simplified cross-product used in place of Numpy's.
 # I'm pretty sure its way faster. Big if true.
 def fast_cross(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    return np.array([
-        a[1] * b[2] - a[2] * b[1],
-        -a[0] * b[2] + a[2] * b[0],
-        a[0] * b[1] - a[1] * b[0],
-    ])
+    return np.array(
+        [
+            a[1] * b[2] - a[2] * b[1],
+            -a[0] * b[2] + a[2] * b[0],
+            a[0] * b[1] - a[1] * b[0],
+        ]
+    )

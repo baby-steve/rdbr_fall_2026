@@ -4,8 +4,37 @@ import numpy as np
 
 import spatial_vector as sv
 
-# GRAVITY = sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 9.81))
-GRAVITY = sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 0.))
+
+def get_model(name: str):
+    from models.box import Box
+    from models.double_pendulum import DoublePendulum
+    from models.double_pendulum_fb import DoublePendulumFB
+    from models.lever import Lever
+    from models.quadruped import Quadruped
+    from models.slider import Slider
+    from models.spring import Spring
+
+    match name:
+        case "Box":
+            return Box()
+        case "DoublePendulum":
+            return DoublePendulum()
+        case "DoublePendulumFB":
+            return DoublePendulumFB()
+        case "Lever":
+            return Lever()
+        case "Quadruped":
+            return Quadruped()
+        case "Slider":
+            return Slider()
+        case "Spring":
+            return Spring()
+        case _:
+            raise RuntimeError("Invalid model: " + str(name))
+
+
+GRAVITY = sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 9.81))
+
 
 class Model:
     def __init__(
