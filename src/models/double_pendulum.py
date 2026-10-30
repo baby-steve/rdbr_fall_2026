@@ -8,7 +8,7 @@ from model import Model
 
 
 class DoublePendulum(Model):
-    def __init__(self, l0, l1, m0, m1):
+    def __init__(self):
         # Physical properties
         l0 = 0.4  # length of first link (about 16 inches)
         l1 = 0.5  # length of second link (about 20 inches)
@@ -65,7 +65,7 @@ class DoublePendulum(Model):
         self.gc_point = np.array([sv.vec3(0., 0., 0.4), sv.vec3(0., 0., 0.5)])
 
         self.appearance = {
-            1: [
+            0: [
                 graphics.DrawColor("blue"),
                 graphics.DrawCylinder(
                     p1=sv.vec3(0., 0.05, 0.),
@@ -78,7 +78,7 @@ class DoublePendulum(Model):
                     radius=rl
                 )
             ],
-            2: [
+            1: [
                 graphics.DrawColor("green"),
                 graphics.DrawCylinder(
                     p1=sv.vec3(0., 0.05, 0.),

@@ -8,7 +8,7 @@ from model import Model
 
 
 class DoublePendulumFB(Model):
-    def __init__(self, l0, l1, m0, m1):
+    def __init__(self):
         # Physical properties
         l0 = 0.4  # length of first link (about 16 inches)
         l1 = 0.5  # length of second link (about 20 inches)

@@ -41,14 +41,14 @@ class Spring(Model):
         self.gc_point = np.array([sv.vec3(0.0, 0.0, 0.0)])
 
         self.appearance = {
-            0: [
+            "base": [
                 graphics.DrawCylinder(
                     p1=sv.vec3(0.0, 0.0, 0.0),
                     p2=sv.vec3(0.0, 0.0, 2 * self.h0),
                     radius=0.01
                 )
             ],
-            1: [
+            0: [
                 graphics.DrawColor("orange"),
                 graphics.DrawCylinder(
                     p1=sv.vec3(0.0, 0.0, 0.0),

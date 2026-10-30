@@ -8,7 +8,7 @@ from model import Model
 
 
 class Quadruped(Model):
-    def __init__(self, l0, l1, m0, m1):
+    def __init__(self):
         # Physical properties
         l0 = 0.4  # length of first link
         l1 = 0.5  # length of second link
@@ -50,7 +50,7 @@ class Quadruped(Model):
         ]
 
         # Mass of each leg, in kgs
-        m = [m0, m1]
+        m = [1.0, 1.0]
 
         # TODO: I have no idea if this is correct.
         com = [np.array([0, 0, l0 / 2]), np.array([0, 0, l1 / 2])]
@@ -82,7 +82,7 @@ class Quadruped(Model):
         self.appearance = { }
         for i in range(0, 8, 2):
             # Upper leg
-            self.appearance[i + 1] = [
+            self.appearance[i] = [
                 graphics.DrawColor(self.colors[i // 2]),
                 graphics.DrawCylinder(
                     p1=sv.vec3(0., 0.05, 0.),
@@ -96,7 +96,7 @@ class Quadruped(Model):
                 )
             ]
             # Lower leg
-            self.appearance[i + 2] = [
+            self.appearance[i + 1] = [
                 graphics.DrawColor(self.colors[i // 2]),
                 graphics.DrawCylinder(
                     p1=sv.vec3(0., 0.05, 0.),

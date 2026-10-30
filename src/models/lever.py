@@ -58,7 +58,7 @@ class Lever(Model):
         self.gc_point = np.array([sv.vec3(0.0, 0.0, 0.8)])
 
         self.appearance = {
-            1: [
+            0: [
                 graphics.DrawCylinder(
                     p1=sv.vec3(0.0, 0.0, 0.0), p2=sv.vec3(0.0, 0.0, l0), radius=rl
                 )
