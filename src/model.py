@@ -4,7 +4,8 @@ import numpy as np
 
 import spatial_vector as sv
 
-GRAVITY = sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 9.81))
+# GRAVITY = sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 9.81))
+GRAVITY = sv.MotionVector(sv.vec3(0., 0., 0.), sv.vec3(0., 0., 0.))
 
 class Model:
     def __init__(
@@ -46,6 +47,8 @@ class Model:
 
         self.H: np.array = np.zeros((self.nb, self.nb))
         self.C: np.array = np.zeros((self.nb, 1))
+
+        self.pos = np.array([[0., 0., 0.]])
 
 
     def joint_forces(self):
@@ -207,6 +210,26 @@ class Model:
 
         return global_transform
 
+    def calculate_global_rotation(self) -> list[np.ndarray]:
+        """
+        Calculate the Plucker transform of each body that transforms some point
+        from the body's frame to the base coordinate system (see section 4.2 of
+        Featherstone's "Rigid Body Dynamics Algorithms").
+        """
+        global_rotation = []
+
+        for i in range(self.nb):
+            (x_j, _) = self.jcalc(self.joint_types[i], self.q[i])
+            E_t = self.joint_transforms[i].E
+            E = x_j.E @ E_t
+
+            if self.parent[i] != None:
+                E = E @ global_rotation[self.parent[i]]
+
+            global_rotation.append(E)
+
+        return global_rotation
+
 
     def apply_external_forces(self, x_up, fvp, f_ext):
         # NOTE: this applies all external forces to all joints.
@@ -293,16 +316,16 @@ class Model:
                 xa[i] = xup * xa[self.parent[i]]
                 vb[i] = xup.apply(vb[self.parent[i]]) + v_j
 
-        pos = np.zeros((self.nb, 3))
-        vel = np.zeros((self.nb, 3))
+        pos = np.zeros((len(self.gc_body), 3))
+        vel = np.zeros((len(self.gc_body), 3))
 
-        for i in self.gc_body:
-            iset = self.gc_body == i
-            v = xa[i].inv_apply(vb[i])
+        for p_idx, j_idx in enumerate(self.gc_body):
+            # iset = self.gc_body == i
+            v = xa[j_idx].inv_apply(vb[j_idx])
 
-            pt = xa[i].inv_apply(self.gc_point[iset, :].reshape(3,))
+            pt = xa[j_idx].inv_apply(self.gc_point[p_idx].reshape(3,))
             vpt = v.as_point(pt)
-            pos[iset, :] = pt
-            vel[iset, :] = vpt
+            pos[p_idx] = pt
+            vel[p_idx] = vpt
 
         return pos, vel

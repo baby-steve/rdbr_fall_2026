@@ -53,6 +53,7 @@ class Simulation:
 
         # HACK: use our torque chart to display impact forces
         # self.tau[i] = fn
+        self.model.pos = p
 
 
 def integrate(f, t1, t2):

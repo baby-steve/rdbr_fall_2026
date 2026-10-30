@@ -7,7 +7,7 @@ import src.spatial_vector as sv
 
 class TestHello(unittest.TestCase):
     def test_skew(self):
-        a = sv.vec3(-1., 2., 3.)
+        a = sv.vec3(-1.0, 2.0, 3.0)
         res = sv.skew(a)
 
         # 3D input should produce 3x3 skew-symmetric matrix.
@@ -24,15 +24,17 @@ class TestHello(unittest.TestCase):
 
     def test_inertia(self):
         m = 2
-        c = sv.vec3(1., 2., 3.)
-        I_c = np.array([[2., 0., 0.], [0., 2., 0.], [0., 0., 4.]])
+        c = sv.vec3(1.0, 2.0, 3.0)
+        I_c = np.array([[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 4.0]])
         rbi = sv.RigidBodyInertia(m, c, I_c)
 
-        I_correct = np.array([
-            [28., -4., -6.],
-            [-4., 22., -12.],
-            [-6., -12., 14.],
-        ])
+        I_correct = np.array(
+            [
+                [28.0, -4.0, -6.0],
+                [-4.0, 22.0, -12.0],
+                [-6.0, -12.0, 14.0],
+            ]
+        )
 
         print(rbi.I)
 
@@ -41,11 +43,13 @@ class TestHello(unittest.TestCase):
 
     def test_roundtrip_inertia_transform(self):
         m = 2
-        h = sv.vec3(1., 2., 3.)
-        I_c = np.array([[2., 0., 0.], [0., 2., 0.], [0., 0., 4.]])
+        h = sv.vec3(1.0, 2.0, 3.0)
+        I_c = np.array([[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 4.0]])
         rbi = sv.RigidBodyInertia(m, h, I_c)
 
-        x = sv.PluckerTransform.xlt(sv.vec3(-5., 2., 4.)) # sv.PluckerTransform(sv.rx(np.pi / 4), np.array([-5, -2, 4]))
+        x = sv.PluckerTransform.xlt(
+            sv.vec3(-5.0, 2.0, 4.0)
+        )  # sv.PluckerTransform(sv.rx(np.pi / 4), np.array([-5, -2, 4]))
         a = x.apply(rbi)
         b = x.inv_apply(a)
 
@@ -54,7 +58,7 @@ class TestHello(unittest.TestCase):
         print(b.m, b.h, b.I)
 
     def test_plucker_transform_motion_vector(self):
-        v = sv.MotionVector(np.array([1., 2., 3.]), np.array([4., 5., 6.]))
+        v = sv.MotionVector(np.array([1.0, 2.0, 3.0]), np.array([4.0, 5.0, 6.0]))
         x = sv.PluckerTransform(sv.rx(np.pi / 3), np.array([5, 3, 1]))
         res = x.apply(v)
         inv = x.inv_apply(res)
@@ -78,13 +82,13 @@ class TestHello(unittest.TestCase):
         a = sv.MotionVector(sv.vec3(0, 0, 0), sv.vec3(2, 3, -1))
         v = sv.MotionVector(sv.vec3(2, 3, 4), sv.vec3(-1, -2, -3))
 
-        f_res = f + I*a + v.cross(I * v)
+        f_res = f + I * a + v.cross(I * v)
 
         print(f_res.n, f_res.f)
 
     def test_apply_plucker_to_3d_point(self):
-        ZERO = sv.vec3(0., 0., 0.)
-        x = sv.PluckerTransform.xlt(sv.vec3(1., 2., 3.))
+        ZERO = sv.vec3(0.0, 0.0, 0.0)
+        x = sv.PluckerTransform.xlt(sv.vec3(1.0, 2.0, 3.0))
         p = x.apply(ZERO)
         self.assertEqual(p.shape, (3,))
 
@@ -96,8 +100,8 @@ class TestHello(unittest.TestCase):
 
     def test_inertia_methods(self):
         mass = 3.0
-        com = sv.vec3(1., 2., 3.)
-        rot_I = np.array([[2., 0., 0.], [0., 3., 0.], [0., 0., 5.]])
+        com = sv.vec3(1.0, 2.0, 3.0)
+        rot_I = np.array([[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 5.0]])
 
         inertia = sv.RigidBodyInertia(mass, com, rot_I)
 
@@ -108,14 +112,14 @@ class TestHello(unittest.TestCase):
     def test_algerbruh(self):
         # TODO: remove this
         m = 2.2
-        h = sv.vec3(1., 2., 3.)
+        h = sv.vec3(1.0, 2.0, 3.0)
         a = m * sv.skew(h / m)
         b = sv.skew(h)
-        self.assertTrue((a == b).all()) # W algebra
+        self.assertTrue((a == b).all())  # W algebra
 
     def test_mor_algerbruh(self):
         # TODO: also remove this
-        com = sv.vec3(6., 7., -2.)
+        com = sv.vec3(6.0, 7.0, -2.0)
         a = sv.skew(com) @ sv.skew(com).T
         b = sv.crv(com) @ sv.crv(com).T
         self.assertTrue((a == b).all(), f"{a} is not equal to {b}")
@@ -144,6 +148,44 @@ class TestHello(unittest.TestCase):
         self.assertTrue((res == correct_res).all())
 
         print(res[3:6])
+
+    def test_plucker_transform_angle(self):
+        x = (
+            sv.PluckerTransform.xlt(np.array([1.0, 0.0, 0.0]))
+             * sv.PluckerTransform.rotx(0.45)
+             * sv.PluckerTransform.rotz(0.5)
+             * sv.PluckerTransform.roty(1.5)
+        )
+
+        # self.assertAlmostEqual(x.angle_x(), 0.45)
+        # self.assertAlmostEqual(x.angle_y(), 1.5)
+        # self.assertAlmostEqual(x.angle_z(), 0.5)
+        print("------")
+        angles = x.euler_angles()
+        print(angles)
+
+        R = x.E
+        theta = np.arccos((np.trace(R) - 1) / 2)
+        v = np.sin(theta) * sv.skew(R)
+        print(theta, v, theta * v)
+        point = x.inv_apply(sv.ZERO)
+        print(point)
+        theta_z = np.atan2(point[1], point[0])
+        theta_y = np.atan2(point[0], point[2])
+        theta_x = np.atan2(point[1], point[2])
+        print(theta_x, theta_y, theta_z)
+
+    def test_transform_as_quat(self):
+        x = (
+            sv.PluckerTransform.xlt(np.array([1.0, 0.0, 0.0]))
+             * sv.PluckerTransform.rotx(0.45)
+             * sv.PluckerTransform.rotz(0.5)
+             * sv.PluckerTransform.roty(1.5)
+        )
+
+        q = x.as_quaternion()
+        print(q)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,10 +6,12 @@ from models.lever import Lever
 from models.quadruped import Quadruped
 from models.slider import Slider
 from models.spring import Spring
+from models.double_pendulum_fb import DoublePendulumFB
 from session import PlaybackSession, RunSession
 import graphics
 import graphics_fury
 from data import DataManager
+import datetime
 
 parser = argparse.ArgumentParser()
 subparsers = parser.add_subparsers(dest="subparser_name")
@@ -32,6 +34,8 @@ if args.subparser_name == "run":
     model_name = args.model
     if model_name == "DoublePendulum":
         model = DoublePendulum(1, 1.5, 1.25, 1.25)
+    elif model_name == "DoublePendulumFB":
+        model = DoublePendulumFB(1, 1.5, 1.25, 1.25)
     elif model_name == "Quadruped":
         model = Quadruped(1.0, 1.5, 1.0, 1.0)
     elif model_name == "Lever":
@@ -65,7 +69,6 @@ else:
 if args.subparser_name == "run" and args.fury:
     # Blocks until the application is closed.
     graphics_manager.data = session.data
-    graphics_manager.state = session.state
 
     if args.no_autostart:
         session.state.running = False

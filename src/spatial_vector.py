@@ -1,6 +1,6 @@
 import numpy as np
 # from numba import jit
-
+import math
 
 def vec3(x: float, y: float, z: float) -> np.ndarray:
     """
@@ -34,7 +34,7 @@ def rz(theta: float) -> np.ndarray:
 
 
 # vector cross-product operator.
-# TODO: let's performance test this one: 
+# TODO: let's performance test this one:
 # @jit
 def crv(v: np.ndarray) -> np.ndarray:
     assert(v.shape == (3,))
@@ -58,6 +58,23 @@ def skew(A: np.ndarray) -> np.ndarray:
         return np.array([[0, -A[2], A[1]], [A[2], 0, -A[0]], [-A[1], A[0], 0]])
 
 
+def quaternion(E):
+    tr = np.trace(E) # Trace is 4 * q0 ** 2 - 1
+    v = -skew(E) # v is 2 * q0 * [q1; q2; q3]
+    if tr > 0:
+        q = np.block([(tr + 1) / 2, v])
+    else:
+        E = E - ((tr - 1) / 2) * np.eye(3)
+        E = E + E.T
+        if E[0, 0] >= E[1, 1] and E[0, 0] >= E[2, 2]:
+            q = np.block([2 * v[0], E[:, 0]])
+        elif E[1, 1] >= E[2, 2]:
+            q = np.block([2 * v[1], E[:, 1]])
+        else:
+            q = np.block([2 * v[2], E[:, 2]])
+        if q[0] < 0:
+            q = -q
+    return q / np.linalg.norm(q)
 ZERO = vec3(0., 0., 0.)
 
 
@@ -137,11 +154,11 @@ class ForceVector:
 
     def as_array(self):
         return np.array([
-            [self.n[0]], 
-            [self.n[1]], 
-            [self.n[2]], 
-            [self.f[0]], 
-            [self.f[1]], 
+            [self.n[0]],
+            [self.n[1]],
+            [self.n[2]],
+            [self.f[0]],
+            [self.f[1]],
             [self.f[2]]
         ]) # np.block([self.n, self.f]).reshape((6, 1))
 
@@ -150,12 +167,12 @@ class ForceVector:
         # Scalar multiplication
         assert(type(other) is float)
         return ForceVector(other * self.n, other * self.f)
-        
+
 
     def __add__(self, other):
         assert(type(other) is ForceVector)
         return ForceVector(self.n + other.n, self.f + other.f)
-    
+
 
     def __sub__(self, other):
         assert(type(other) is ForceVector)
@@ -249,6 +266,84 @@ class PluckerTransform:
     def transpose(self):
         raise RuntimeError("Unimplemented")
 
+    def angle_x(self) -> float:
+        return math.atan2(self.E[2, 1], self.E[2, 2])
+
+    def angle_y(self) -> float:
+        return math.atan2(-self.E[2, 0], math.sqrt(self.E[2, 1] ** 2 + self.E[2, 2] ** 2))
+
+    def angle_z(self) -> float:
+        return math.atan2(self.E[1, 0], self.E[0, 0])
+
+    def euler_angles(self):
+        # Rx = sigma
+        # Ry = theta
+        # Rz = phi
+
+        # R = self.E
+        # if abs(R[2, 0]) != 1:
+        #     theta_1 = -math.asin(R[2, 0])
+        #     theta_2 = math.pi - theta_1
+        #     sigma_1 = math.atan2(R[2, 1] * math.cos(theta_1), R[2, 2] * math.cos(theta_1))
+        #     sigma_2 = math.atan2(R[2, 1] * math.cos(theta_2), R[2, 2] * math.cos(theta_2))
+        #     phi_1 = math.atan2(R[1, 0] * math.cos(theta_1), R[0, 0] * math.cos(theta_1))
+        #     phi_2 = math.atan2(R[1, 0] * math.cos(theta_2), R[0, 0] * math.cos(theta_2))
+
+        #     print(theta_2, sigma_2, phi_2)
+        #     return np.array([theta_1, sigma_1, phi_1])
+        # else:
+        #     raise RuntimeError("Fuck off")
+        w = -skew(self.E) # w == s/theta * v
+        s = np.linalg.norm(w)
+        c = (np.trace(self.E) - 1) / 2
+        theta = np.atan2(s, c)
+
+        if s == 0:
+            v = ZERO
+        elif theta < 0.9 * np.pi: # Somewhat arbitrary threshold (just needs to be close to pi)
+            v = theta / s * w
+        else:
+            # Extract v*v' component from E and pick biggest column (best chance to get sign right)
+            E = self.E - c @ np.eye(3)
+            E = E + E.T
+            if E[0, 0] >= E[1, 1] and E[0, 0] >= E[2, 2]:
+                if w[0] >= 0:
+                    v = E[:, 0]
+                else:
+                    v = -E[:, 0]
+            elif E[1, 1] >= E[2, 2]:
+                if w[1] >= 0:
+                    v = E[:, 1]
+                else:
+                    v = -E[:, 1]
+            else:
+                if w[2] >= 0:
+                    v = E[:, 2]
+                else:
+                    v = -E[:, 2]
+
+            v = theta / np.linalg.norm(v) @ v
+        return v
+
+    def as_quaternion(self):
+        tr = np.trace(self.E) # Trace is 4 * q0 ** 2 - 1
+        v = -skew(self.E) # v is 2 * q0 * [q1; q2; q3]
+        if tr > 0:
+            q = np.block([(tr + 1) / 2, v])
+        else:
+            E = self.E - ((tr - 1) / 2) * np.eye(3)
+            E = E + E.T
+            if E[0, 0] >= E[1, 1] and E[0, 0] >= E[2, 2]:
+                q = np.block([2 * v[0], E[:, 0]])
+            elif E[1, 1] >= E[2, 2]:
+                q = np.block([2 * v[1], E[:, 1]])
+            else:
+                q = np.block([2 * v[2], E[:, 2]])
+            if q[0] < 0:
+                q = -q
+
+        return q / np.linalg.norm(q)
+
     def apply(self, other):
         match other:
             case MotionVector():
@@ -311,13 +406,13 @@ class PluckerTransform:
             [A[1][0], A[1][1], A[1][2], self.E[1][0], self.E[1][1], self.E[1][2]],
             [A[2][0], A[2][1], A[2][2], self.E[2][0], self.E[2][1], self.E[2][2]],
         ])
-    
+
 
     def __mul__(self, other):
         assert(type(other) is PluckerTransform)
-        
+
         return PluckerTransform(self.E @ other.E, other.r + other.E.T @ self.r)
-    
+
 
     def __repr__(self) -> str:
         return f"PluckerTransfrom(\n{self.E},\n{self.r}\n)"

@@ -99,6 +99,7 @@ class GraphicsManager:
         # body = pv.Cylinder(center=b_pos_1, height=0.4, radius=0.025)
         # self.plotter.add_mesh(body, color="orange", name="a_body_1", render=False)
 
+        color = "blue"
         xs = self.model.calculate_global_transform()
         for i, insts in enumerate(self.model.appearance.values()):
             for j, inst in enumerate(insts):
@@ -155,8 +156,8 @@ class SimDataChart:
         self.chart.y_range = self.bounds
 
 
-class DrawInstruction: 
-    def appearance_fury(self) -> tuple[np.ndarray, np.ndarray]:
+class DrawInstruction:
+    def appearance_fury(self, xup: sv.PluckerTransform) -> tuple[np.ndarray, np.ndarray]:
         ...
 
 

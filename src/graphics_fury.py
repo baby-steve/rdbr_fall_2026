@@ -5,8 +5,8 @@ import numpy as np
 import graphics
 from imgui_bundle import imgui, implot
 from data import DataManager
-from session import SharedState
 from enum import Enum
+import datetime
 
 # TODO: rename to just "GraphicsManager" whenever we're done porting
 # graphics over from pyvista
@@ -28,9 +28,9 @@ def create_imgui_controls():
 
 
 class FuryGraphicsManager:
-    actor_groups: list[list[tuple[actor.Mesh, graphics.DrawInstruction]]]
-    state: SharedState
+    actor_groups: dict[list[tuple[int, actor.Mesh, graphics.DrawInstruction]]]
     data: DataManager
+    startup = True
 
     def __init__(self, model: Model):
         self.model = model
@@ -41,27 +41,34 @@ class FuryGraphicsManager:
 
         self.scene = Scene(background=(1, 1, 1))
 
-        self.actor_groups = []
+        self.actor_groups = {}
 
-        for insts in model.appearance.values():
-
+        for body_id, insts in model.appearance.items():
             actors = []
             for inst in insts:
                 if type(inst) is graphics.DrawColor:
                     continue
 
+                if body_id == "base":
+                    x_center = inst.x_center
+                    center = np.array([x_center.inv_apply(sv.ZERO)])
+                else:
+                    center = np.array([sv.ZERO])
+
                 a = actor.cylinder(
-                    centers=np.array([sv.ZERO]),
+                    centers=center,
                     colors=(0, 0, 1),
                     radii=inst.radius,
                     height=inst.height,
                     directions=inst.initial_direction,
                 )
 
-                actors.append((a, inst))
+                actors.append((body_id, a, inst))
                 self.scene.add(a)
 
-            self.actor_groups.append(actors)
+            self.actor_groups[body_id] = actors
+
+        # print(self.actor_groups)
 
         # Spawn some ground.
         ground = actor.box(
@@ -90,30 +97,86 @@ class FuryGraphicsManager:
     def start(self, app):
         self.show.register_callback(app.update, 1.0 / 60.0, True, "AppLoop")
 
+        app.now = datetime.datetime.now().timestamp()
+        self.app = app
         self.show.start()
 
-    def update(self, a):
+    def update(self, _):
         xs = self.model.calculate_global_transform()
+        Es = self.model.calculate_global_rotation()
+        prev_qy = 0
+        prev_qz = 0
 
-        prev_q = 0
-        for i, group in enumerate(self.actor_groups):
-            for actor, inst in group:
-                center, _ = inst.appearance_fury(xs[i])
-                actor.local.position = center
+        for i in range(self.model.nb):
+            j_type = self.model.joint_types[i]
+            x = xs[i]
+            E = Es[i]
+            q = self.model.q[i]
 
-                # print(np.arctan(center[2] / center[0]))
-                # theta_1 = np.arctan(center[2] / center[0])
-                # theta_2 = np.arctan(joint[2] / joint[0])
-                # TODO: directly write out math instead of using linalg.norm
-                # angle = np.acos(center.dot(joint) / (np.linalg.norm(center) * np.linalg.norm(joint)))
-                # print(angle)
-                actor.local.euler_y = self.model.q[i] + prev_q  # -angle
+            if i in self.actor_groups:
+                group = self.actor_groups[i]
+            else:
+                # No drawing instructions for this body.
+                continue
 
-                # actor.local.euler_x = nd - np.arctan(center[1] / center[2])
-                # if center[1] != 0:
-                #     actor.local.euler_z = nd - np.arctan(center[0] / center[1])
+            for id, a, inst in group:
+                center, _ = inst.appearance_fury(x)
 
-            prev_q = 0 if self.model.parent[i] != None else prev_q + self.model.q[i]
+                a: actor.Mesh = a
+
+                a.local.position = center
+                a.local.rotation = sv.quaternion(E)
+                # if j_type == "Ry":
+                #     a.local.euler_y = q + prev_qy # -angle
+                # elif j_type == "Rz":
+                #     a.local.euler_z = q + prev_qz
+
+                # a.local.euler_y += prev_qy
+                # a.local.euler_z += prev_qz
+
+            if j_type == "Ry":
+                prev_qy += q # + prev_q  # -angle
+            elif j_type == "Rz":
+                prev_qz += q
+            else:
+                prev_qy = 0
+
+
+        # prev_q = 0
+        # for i, group in enumerate(self.actor_groups):
+        #     for id, a, inst in group:
+        #         # print(id)
+        #         if id == 0:
+        #             center, _ = inst.appearance_fury(sv.PluckerTransform.xlt(sv.ZERO))
+        #             a.local.position = center
+        #             idx = 0
+        #             j_type = "K"
+        #             continue
+        #         else:
+        #             center, _ = inst.appearance_fury(xs[id - 1])
+
+        #         idx = id - 1
+
+
+        #         # print(np.arctan(center[2] / center[0]))
+        #         # theta_1 = np.arctan(center[2] / center[0])
+        #         # theta_2 = np.arctan(joint[2] / joint[0])
+        #         # TODO: directly write out math instead of using linalg.norm
+        #         # angle = np.acos(center.dot(joint) / (np.linalg.norm(center) * np.linalg.norm(joint)))
+        #         # print(angle)
+        #         j_type = self.model.joint_types[idx]
+        #         if j_type[0] == "R":
+        #             a.local.euler_y = self.model.q[idx] + prev_q  # -angle
+
+        #         # actor.local.euler_x = nd - np.arctan(center[1] / center[2])
+        #         # if center[1] != 0:
+        #         #     actor.local.euler_z = nd - np.arctan(center[0] / center[1])
+
+        #     if j_type[0] == "R":
+        #         # prev_q = prev_q if self.model.parent[idx] != None else prev_q + self.model.q[idx]
+        #         prev_q += self.model.q[idx]
+        #     # if j_type[0] == "P":
+        #     #    prev_q = 0
 
         self.show.render()
 
@@ -124,6 +187,14 @@ class FuryGraphicsManager:
         imgui.set_next_window_pos((20, 30), imgui.Cond_.first_use_ever)
         imgui.set_next_window_size((300, 650), imgui.Cond_.first_use_ever)
 
+        if self.startup:
+            # DEV: this is kind of a hack. The first time the graphics stuff
+            # is called, it takes a lot longer than most frames which makes
+            # the simulation kind of glitch because the simulation has to simulate
+            # for like 20x longer or something. This seems to fix it tho?
+            self.app.now = datetime.datetime.now().timestamp()
+            self.startup = False
+
         expanded, _ = imgui.begin("Controls")
         if expanded:
             if imgui.begin_tab_bar("controls_tab"):
@@ -132,7 +203,7 @@ class FuryGraphicsManager:
 
                 if imgui.tab_item_button("Model"):
                     self.view_plot = False
-                    
+
                 imgui.end_tab_bar()
 
             if self.view_plot:

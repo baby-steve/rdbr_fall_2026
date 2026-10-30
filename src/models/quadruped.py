@@ -82,7 +82,7 @@ class Quadruped(Model):
         self.appearance = { }
         for i in range(0, 8, 2):
             # Upper leg
-            self.appearance[i] = [
+            self.appearance[i + 1] = [
                 graphics.DrawColor(self.colors[i // 2]),
                 graphics.DrawCylinder(
                     p1=sv.vec3(0., 0.05, 0.),
@@ -96,7 +96,7 @@ class Quadruped(Model):
                 )
             ]
             # Lower leg
-            self.appearance[i + 1] = [
+            self.appearance[i + 2] = [
                 graphics.DrawColor(self.colors[i // 2]),
                 graphics.DrawCylinder(
                     p1=sv.vec3(0., 0.05, 0.),

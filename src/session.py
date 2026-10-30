@@ -53,7 +53,6 @@ class RunSession(Session):
         new_time = datetime.now().timestamp()
         frame_time = new_time - self.now
         self.now = new_time
-
         self.acc += frame_time
 
         # TODO: this kind of timestep shenanigans is probably overkill for our
@@ -63,7 +62,6 @@ class RunSession(Session):
             self.sim.step(self.dt)
 
             # Record current timestamp.
-            # TODO: should we record substeps?
             self.data.time.append(self.elapsed)
 
             # Record joint positions.
